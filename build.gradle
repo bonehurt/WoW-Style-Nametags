@@ -14,7 +14,7 @@ repositories {
 }
 
 def runeLiteVersion = 'latest.release'
-def pluginMainClass = 'com.example.ExamplePluginTest'
+def pluginMainClass = 'com.wownpc.PluginLauncher'
 
 dependencies {
 	compileOnly group: 'net.runelite', name:'client', version: runeLiteVersion
@@ -24,7 +24,7 @@ dependencies {
 
 	testImplementation 'junit:junit:4.12'
 	testImplementation group: 'net.runelite', name:'client', version: runeLiteVersion
-	testImplementation group: 'net.runelite', name:'jshell', version: runeLiteVersion
+	testImplementation group: 'net.runelite', name:'jshell', version: runeLiteVersion 
 }
 
 group = 'com.example'
@@ -33,10 +33,11 @@ version = '1.0-SNAPSHOT'
 tasks.withType(JavaCompile).configureEach {
 	options.encoding = 'UTF-8'
 	options.release.set(11)
+	options.compilerArgs << '-Xlint:deprecation'
 }
 
 tasks.register('run', JavaExec) {
-	classpath = sourceSets.test.runtimeClasspath
+	classpath = sourceSets.test.runtimeClasspath + sourceSets.main.output
 	mainClass = pluginMainClass
 
 	jvmArgs "-ea"

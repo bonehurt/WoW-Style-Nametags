@@ -1,0 +1,452 @@
+package com.wownpc;
+
+import com.google.inject.Inject;
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
+import java.awt.Shape;
+import java.awt.font.FontRenderContext;
+import java.awt.font.TextLayout;
+import java.awt.geom.AffineTransform;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import net.runelite.api.Actor;
+import net.runelite.api.Client;
+import net.runelite.api.NPC;
+import net.runelite.api.Player;
+import net.runelite.api.Point;
+import net.runelite.api.coords.WorldPoint;
+import net.runelite.client.ui.overlay.Overlay;
+import net.runelite.client.ui.overlay.OverlayLayer;
+import net.runelite.client.ui.overlay.OverlayPosition;
+import net.runelite.client.ui.overlay.OverlayUtil;
+
+public class WoWStyleNametagsOverlay extends Overlay
+{
+    /**
+     * All data required to render a single nametag, including its resolved
+     * screen position (which may be shifted from the natural position when
+     * stack-tags mode is active).
+     */
+    private static final class TagEntry
+    {
+        final String text;
+        final Color colour;
+        final boolean outlineEnabled;
+        final Color outlineColour;
+        final int outlineThickness;
+        /** Chebyshev tile distance from the local player — used for culling. */
+        final int worldDist;
+        /** Screen X of the text baseline (left edge). Immutable. */
+        final int screenX;
+        /** Screen Y of the text baseline. Mutated by resolveOverlaps() when stacking. */
+        int screenY;
+
+        TagEntry(String text, Color colour, boolean outlineEnabled, Color outlineColour,
+                 int outlineThickness, int worldDist, int screenX, int screenY)
+        {
+            this.text            = text;
+            this.colour          = colour;
+            this.outlineEnabled  = outlineEnabled;
+            this.outlineColour   = outlineColour;
+            this.outlineThickness = outlineThickness;
+            this.worldDist       = worldDist;
+            this.screenX         = screenX;
+            this.screenY         = screenY;
+        }
+    }
+
+    private final WoWStyleNametagsPlugin plugin;
+    private final Client client;
+
+    @Inject
+    WoWStyleNametagsOverlay(Client client, WoWStyleNametagsPlugin plugin)
+    {
+        this.plugin = plugin;
+        this.client = client;
+        setPosition(OverlayPosition.DYNAMIC);
+        setLayer(OverlayLayer.ABOVE_SCENE);
+    }
+
+    @Override
+    public Dimension render(Graphics2D graphics)
+    {
+        Player localPlayer = client.getLocalPlayer();
+        if (localPlayer == null)
+        {
+            return null;
+        }
+
+        WorldPoint localWp = localPlayer.getWorldLocation();
+        List<TagEntry> entries = new ArrayList<>();
+
+        // --- Collect NPC entries ---
+        for (NPC npc : plugin.getTrackedNpcs())
+        {
+            TagEntry entry = collectNpcEntry(graphics, npc, localPlayer, localWp);
+            if (entry != null)
+            {
+                entries.add(entry);
+            }
+        }
+
+        // --- Collect player entries ---
+        try
+        {
+            var wv = client.getTopLevelWorldView();
+            if (wv != null)
+            {
+                for (var p : wv.players())
+                {
+                    TagEntry entry = collectPlayerEntry(graphics, p, localPlayer, localWp);
+                    if (entry != null)
+                    {
+                        entries.add(entry);
+                    }
+                }
+            }
+        }
+        catch (Exception ignored) {}
+
+        if (entries.isEmpty())
+        {
+            return null;
+        }
+
+        // --- Distance-based culling: sort closest first, then truncate ---
+        entries.sort(Comparator.comparingInt(e -> e.worldDist));
+        int max = plugin.maxEntities;
+        if (max > 0 && entries.size() > max)
+        {
+            entries = entries.subList(0, max);
+        }
+
+        // --- Optional vertical stacking to prevent overlapping nametags ---
+        if (plugin.stackTags)
+        {
+            resolveOverlaps(graphics, entries);
+        }
+
+        // --- Render ---
+        for (TagEntry entry : entries)
+        {
+            renderTag(graphics, entry);
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolves overlapping nametags by shifting them vertically, WoW-style.
+     * Entries must be sorted closest-first on entry. The closest entity keeps
+     * its natural screen position; each subsequent entry is nudged upward (or
+     * downward when anchor-below is active) until it no longer overlaps any
+     * already-placed tag.  On each overlap check we jump past the most extreme
+     * conflicting box so the algorithm always converges.
+     */
+    private void resolveOverlaps(Graphics2D graphics, List<TagEntry> entries)
+    {
+        FontMetrics fm = graphics.getFontMetrics();
+        // Each int[] stores [left, top, right, bottom] of a placed tag's bounding box.
+        List<int[]> placed = new ArrayList<>(entries.size());
+
+        for (TagEntry entry : entries)
+        {
+            int w = fm.stringWidth(entry.text);
+            int h = fm.getAscent();
+
+            // The text baseline is at (screenX, screenY).
+            // Bounding box: top = baseline − ascent, bottom = baseline.
+            int left   = entry.screenX;
+            int right  = left + w;
+            int bottom = entry.screenY;
+            int top    = bottom - h;
+
+            boolean overlapping = true;
+            while (overlapping)
+            {
+                overlapping = false;
+                int bestEdge = plugin.anchorBelow ? Integer.MIN_VALUE : Integer.MAX_VALUE;
+
+                for (int[] b : placed)
+                {
+                    boolean xOverlap = left < b[2] && right > b[0];
+                    boolean yOverlap = top  < b[3] && bottom > b[1];
+                    if (xOverlap && yOverlap)
+                    {
+                        overlapping = true;
+                        if (plugin.anchorBelow)
+                        {
+                            // Nudging downward: jump past the furthest-down placed box.
+                            if (b[3] > bestEdge) bestEdge = b[3];
+                        }
+                        else
+                        {
+                            // Nudging upward: jump past the highest placed box.
+                            if (b[1] < bestEdge) bestEdge = b[1];
+                        }
+                    }
+                }
+
+                if (overlapping)
+                {
+                    if (plugin.anchorBelow)
+                    {
+                        top    = bestEdge + 2;
+                        bottom = top + h;
+                    }
+                    else
+                    {
+                        bottom = bestEdge - 2;
+                        top    = bottom - h;
+                    }
+                }
+            }
+
+            entry.screenY = bottom;
+            placed.add(new int[]{left, top, right, bottom});
+        }
+    }
+
+    /**
+     * Evaluates whether an NPC should receive a nametag and, if so, builds a
+     * {@link TagEntry} with resolved colour/outline settings and natural screen
+     * position. Returns {@code null} if the NPC should be skipped.
+     */
+    private TagEntry collectNpcEntry(Graphics2D graphics, NPC npc, Player localPlayer, WorldPoint localWp)
+    {
+        if (npc == null || npc.getId() < 0)
+        {
+            return null;
+        }
+        String text = npc.getName();
+        if (text == null || text.isEmpty() || "null".equals(text))
+        {
+            return null;
+        }
+
+        // Hover-only gate: show if the cursor is over this NPC (by index or name match).
+        if (plugin.hoverOnly
+                && plugin.hoverIndex != npc.getIndex()
+                && (plugin.hoverTarget == null || !plugin.hoverTarget.equalsIgnoreCase(text)))
+        {
+            return null;
+        }
+
+        Color colour = null;
+        boolean outlineEnabled = false;
+        Color outlineColour = null;
+        int outlineThickness = 2;
+
+        boolean follower = npc.getComposition() != null && npc.getComposition().isFollower();
+
+        if (follower)
+        {
+            Actor owner = npc.getInteracting();
+            boolean myFollower = owner != null && owner.equals(localPlayer);
+
+            if (myFollower)
+            {
+                if (!plugin.enableMyFollowers) return null;
+                colour           = plugin.myFollowerColour;
+                outlineEnabled   = plugin.myFollowerOutlineEnabled;
+                outlineColour    = plugin.myFollowerOutlineColour;
+                outlineThickness = plugin.myFollowerOutlineThickness;
+            }
+            else
+            {
+                if (!plugin.enableOtherPlayersFollowers) return null;
+                colour           = plugin.otherPlayersFollowerColour;
+                outlineEnabled   = plugin.otherPlayersFollowerOutlineEnabled;
+                outlineColour    = plugin.otherPlayersFollowerOutlineColour;
+                outlineThickness = plugin.otherPlayersFollowerOutlineThickness;
+            }
+        }
+        else
+        {
+            boolean attack = plugin.hasAttackOption(npc);
+            boolean talk   = plugin.hasTalkOption(npc);
+
+            // Passive: attackable-only NPCs whose combat level is lower than the player's.
+            boolean passive = false;
+            try
+            {
+                if (attack && !talk)
+                {
+                    int npcLevel    = npc.getCombatLevel();
+                    int playerLevel = localPlayer.getCombatLevel();
+                    if (npcLevel > 0 && playerLevel > 0 && npcLevel < playerLevel)
+                    {
+                        passive = true;
+                    }
+                }
+            }
+            catch (Exception ignored) {}
+
+            if (attack && talk)
+            {
+                if (passive)
+                {
+                    if (!plugin.enablePassive) return null;
+                    colour           = plugin.passiveColour;
+                    outlineEnabled   = plugin.passiveOutlineEnabled;
+                    outlineColour    = plugin.passiveOutlineColour;
+                    outlineThickness = plugin.passiveOutlineThickness;
+                }
+                else
+                {
+                    if (!plugin.enableAttackableTalkable) return null;
+                    colour           = plugin.attackableTalkableColour;
+                    outlineEnabled   = plugin.attackableTalkableOutlineEnabled;
+                    outlineColour    = plugin.attackableTalkableOutlineColour;
+                    outlineThickness = plugin.attackableTalkableOutlineThickness;
+                }
+            }
+            else if (attack)
+            {
+                if (passive)
+                {
+                    if (!plugin.enablePassive) return null;
+                    colour           = plugin.passiveColour;
+                    outlineEnabled   = plugin.passiveOutlineEnabled;
+                    outlineColour    = plugin.passiveOutlineColour;
+                    outlineThickness = plugin.passiveOutlineThickness;
+                }
+                else
+                {
+                    if (!plugin.enableAttackable) return null;
+                    colour           = plugin.attackableColour;
+                    outlineEnabled   = plugin.attackableOutlineEnabled;
+                    outlineColour    = plugin.attackableOutlineColour;
+                    outlineThickness = plugin.attackableOutlineThickness;
+                }
+            }
+            else if (talk)
+            {
+                if (!plugin.enableTalkable) return null;
+                colour           = plugin.talkableColour;
+                outlineEnabled   = plugin.talkableOutlineEnabled;
+                outlineColour    = plugin.talkableOutlineColour;
+                outlineThickness = plugin.talkableOutlineThickness;
+            }
+        }
+
+        if (colour == null)
+        {
+            return null;
+        }
+
+        int offset = plugin.anchorBelow
+                ? -plugin.verticalOffset
+                : npc.getLogicalHeight() + plugin.verticalOffset;
+        Point loc = npc.getCanvasTextLocation(graphics, text, offset);
+        if (loc == null)
+        {
+            return null;
+        }
+
+        int dist = localWp.distanceTo(npc.getWorldLocation());
+        return new TagEntry(text, colour, outlineEnabled, outlineColour, outlineThickness,
+                dist, loc.getX(), loc.getY());
+    }
+
+    /**
+     * Evaluates whether a player should receive a nametag and, if so, builds a
+     * {@link TagEntry}. Returns {@code null} if the player should be skipped.
+     */
+    private TagEntry collectPlayerEntry(Graphics2D graphics, Player p, Player localPlayer, WorldPoint localWp)
+    {
+        if (p == null)
+        {
+            return null;
+        }
+        String name = p.getName();
+        if (name == null || name.isEmpty() || "null".equals(name))
+        {
+            return null;
+        }
+
+        boolean isSelf = p.equals(localPlayer);
+        Color colour;
+        boolean outlineEnabled;
+        Color outlineColour;
+        int outlineThickness;
+
+        if (isSelf)
+        {
+            if (!plugin.enableSelfPlayer) return null;
+            colour           = plugin.selfPlayerColour;
+            outlineEnabled   = plugin.selfPlayerOutlineEnabled;
+            outlineColour    = plugin.selfPlayerOutlineColour;
+            outlineThickness = plugin.selfPlayerOutlineThickness;
+        }
+        else
+        {
+            if (!plugin.enableOtherPlayers) return null;
+            // Apply hover-only to other players (matched by name via hoverTarget).
+            if (plugin.hoverOnly
+                    && (plugin.hoverTarget == null || !plugin.hoverTarget.equalsIgnoreCase(name)))
+            {
+                return null;
+            }
+            colour           = plugin.otherPlayersColour;
+            outlineEnabled   = plugin.otherPlayersOutlineEnabled;
+            outlineColour    = plugin.otherPlayersOutlineColour;
+            outlineThickness = plugin.otherPlayersOutlineThickness;
+        }
+
+        int offset = plugin.anchorBelow
+                ? -plugin.verticalOffset
+                : p.getLogicalHeight() + plugin.verticalOffset;
+        Point loc = p.getCanvasTextLocation(graphics, name, offset);
+        if (loc == null)
+        {
+            return null;
+        }
+
+        // Self always sorts first (distance 0) so it is never culled and keeps its natural position.
+        int dist = isSelf ? 0 : localWp.distanceTo(p.getWorldLocation());
+        return new TagEntry(name, colour, outlineEnabled, outlineColour, outlineThickness,
+                dist, loc.getX(), loc.getY());
+    }
+
+    /** Draws a fully-resolved {@link TagEntry} at its (possibly stacked) screen position. */
+    private void renderTag(Graphics2D graphics, TagEntry entry)
+    {
+        Point loc = new Point(entry.screenX, entry.screenY);
+
+        if (entry.outlineEnabled)
+        {
+            try
+            {
+                Color base    = entry.outlineColour != null ? entry.outlineColour : Color.BLACK;
+                Color outline = new Color(base.getRed(), base.getGreen(), base.getBlue(), 255);
+
+                FontRenderContext frc    = graphics.getFontRenderContext();
+                TextLayout        layout = new TextLayout(entry.text, graphics.getFont(), frc);
+                Shape outlineShape = layout.getOutline(null);
+                AffineTransform transform = AffineTransform.getTranslateInstance(loc.getX(), loc.getY());
+                Shape transformed = transform.createTransformedShape(outlineShape);
+
+                graphics.setColor(outline);
+                graphics.setStroke(new BasicStroke(Math.max(1, entry.outlineThickness),
+                        BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                graphics.draw(transformed);
+
+                graphics.setColor(entry.colour);
+                graphics.fill(transformed);
+            }
+            catch (Exception e)
+            {
+                OverlayUtil.renderTextLocation(graphics, loc, entry.text, entry.colour);
+            }
+        }
+        else
+        {
+            OverlayUtil.renderTextLocation(graphics, loc, entry.text, entry.colour);
+        }
+    }
+}
