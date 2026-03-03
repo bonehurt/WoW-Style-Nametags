@@ -21,7 +21,7 @@ NPCs are automatically classified and coloured by their type:
 - **Other players' followers**
 
 ### Hover-only
-Optionally hide all nametags until you move your cursor over an entity. Your own nametag remains visible regardless.
+Optionally hide all nametags until you move your cursor over an entity. Your own nametag remains visible regardless if enabled.
 
 ### Distance-based culling
 Limit the number of nametags shown at once. Nametags are sorted by distance, closest entities always shown first. Set to 0 for unlimited (default: 0).
