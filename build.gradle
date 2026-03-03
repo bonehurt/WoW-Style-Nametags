@@ -27,7 +27,7 @@ dependencies {
 	testImplementation group: 'net.runelite', name:'jshell', version: runeLiteVersion 
 }
 
-group = 'com.example'
+group = 'com.wownpc'
 version = '1.0'
 
 tasks.withType(JavaCompile).configureEach {
