@@ -1,6 +1,6 @@
 # WoW-Style Nametags
 
-Displays floating nametags above NPCs and players in a style inspired by World of Warcraft. Each entity type can be made visible or hidden and is colour-coded to make it immediately clear whether an NPC is aggressive, passive, friendly, or neutral - no right-clicking required.
+Displays floating nametags above NPCs and players in a style inspired by World of Warcraft. Each entity type can be made visible or hidden and is colour-coded to make it immediately clear whether an NPC is aggressive, passive, friendly, or neutral, never right click EVER again (slight exaggeration).
 
 ## Features
 
@@ -12,7 +12,7 @@ NPCs are automatically classified and coloured by their type:
 | Aggressive | Red | NPCs that can only be attacked and are aggressive towards the player |
 | Passive | Orange | Attackable NPCs whose combat level is below yours |
 | Friendly | Green | NPCs with a Talk-to option (e.g. shopkeepers, quest NPCs) |
-| Neutral | Yellow | NPCs that are both attackable and have talk-to options; like 'Man', 'Woman' entities in Lumbridge |
+| Neutral | Yellow | NPCs that are both attackable and have talk-to options; (e.g. 'Man', 'Woman' entities in Lumbridge) |
 
 ### Player & follower nametags
 - **Your character**
