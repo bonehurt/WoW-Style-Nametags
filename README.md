@@ -37,3 +37,7 @@ Every category has its own independently configurable:
 ### Position control
 - **Anchor above / below** — place the label above or below the entity
 - **Vertical offset** — fine-tune the exact pixel distance from the entity
+
+---
+
+<sub>Current version: 1.0</sub>
