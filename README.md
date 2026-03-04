@@ -21,7 +21,7 @@ NPCs are automatically classified and coloured by their type:
 ### Player & follower nametags
 - **Your character**
 - **Other players**
-- **Your followers** (e.g. Pets, Cats, Imps)
+- **Your followers** (e.g. Pets, Cats)
 - **Other players' followers**
 
 ### Hover-only
