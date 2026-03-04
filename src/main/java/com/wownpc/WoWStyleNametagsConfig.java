@@ -134,7 +134,7 @@ public interface WoWStyleNametagsConfig extends Config
         return true;
     }
 
-    /* Colour group (grouped after enable toggles) */
+    // --- Colours ---
     @Alpha
     @ConfigItem(
         position = 12,
@@ -252,7 +252,7 @@ public interface WoWStyleNametagsConfig extends Config
     )
     String followerOutlineSection = "followerOutlineSection";
 
-    /* NPC outline section (30-41) */
+    // --- NPC Outline (positions 30-41) ---
     @ConfigItem(
         position = 30,
         keyName = "attackableOutlineEnabled",
@@ -405,7 +405,7 @@ public interface WoWStyleNametagsConfig extends Config
         return 2;
     }
 
-    /* Player outline section (42-47) */
+    // --- Player Outline (positions 42-47) ---
     @ConfigItem(
         position = 42,
         keyName = "otherPlayersOutlineEnabled",

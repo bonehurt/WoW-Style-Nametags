@@ -329,12 +329,12 @@ public class WoWStyleNametagsPlugin extends Plugin
                     {
                         if (a != null && a.toLowerCase(Locale.ROOT).contains("talk"))
                         {
-                                persistentTalkable.add(npc.getId());
+                            persistentTalkable.add(npc.getId());
                             return true;
                         }
                     }
                     // Transformed composition has real actions but no talk.
-                        persistentNotTalkable.add(npc.getId());
+                    persistentNotTalkable.add(npc.getId());
                     return false;
                 }
             }
@@ -347,14 +347,14 @@ public class WoWStyleNametagsPlugin extends Plugin
         //    Uses composition ID so all instances of the same NPC type benefit.
         if (persistentTalkable.contains(npc.getId()))
         {
-                return true;
+            return true;
         }
 
         // 2. Persistent negative cache: this NPC type was confirmed as having no
         //    talk option (e.g. examine-only, such as Ducklings).
         if (persistentNotTalkable.contains(npc.getId()))
         {
-                return false;
+            return false;
         }
 
         // 3. Live menu entries - only present while the player is hovering this NPC.
@@ -392,7 +392,7 @@ public class WoWStyleNametagsPlugin extends Plugin
                 // Interaction entries seen but no talk, or only Examine - both definitively not talkable.
                 if (hasInteraction || hasExamine)
                 {
-                        persistentNotTalkable.add(npc.getId());  // composition ID
+                    persistentNotTalkable.add(npc.getId());  // composition ID
                     return false;
                 }
             }
