@@ -41,7 +41,7 @@ You can hide nametags for specific NPC names regardless of other toggles using a
 
 ### Other player name exclusions
 You can hide nametags for specific other players regardless of other toggles using a comma-separated list, for example:
-`zezima, skillpure`
+`zezima, bonecute`
 
 ### Hover-only
 Optionally hide all nametags until you move your cursor over an entity. Your own nametag remains visible regardless if enabled.
