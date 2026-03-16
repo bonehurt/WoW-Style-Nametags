@@ -24,6 +24,25 @@ NPCs are automatically classified and coloured by their type:
 - **Your followers** (e.g. Pets, Cats)
 - **Other players' followers**
 
+### Player relationship styles
+Optionally style the following groups separately from other players:
+- **Friends**
+- **Clan members**
+- **Clan members (Guest)** (members of the clan channel you joined as a guest)
+- **Guests in your clan** (guest players in your clan channel)
+- **Chat channel members**
+
+If a player matches multiple groups, this priority is used:
+**Friends > Clan members > Clan members (Guest) > Guests in your clan > Chat channel members > Other players**
+
+### NPC name exclusions
+You can hide nametags for specific NPC names regardless of other toggles using a comma-separated list, for example:
+`banker, man`
+
+### Other player name exclusions
+You can hide nametags for specific other players regardless of other toggles using a comma-separated list, for example:
+`zezima, skillpure`
+
 ### Hover-only
 Optionally hide all nametags until you move your cursor over an entity. Your own nametag remains visible regardless if enabled.
 
@@ -51,4 +70,4 @@ Every category has its own independently configurable:
 
 ---
 
-<sub>Current version: 1.0</sub>
+<sub>Current version: 1.1</sub>

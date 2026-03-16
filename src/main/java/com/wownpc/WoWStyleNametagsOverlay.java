@@ -18,6 +18,9 @@ import net.runelite.api.Client;
 import net.runelite.api.NPC;
 import net.runelite.api.Player;
 import net.runelite.api.Point;
+import net.runelite.api.clan.ClanChannel;
+import net.runelite.api.clan.ClanChannelMember;
+import net.runelite.api.clan.ClanRank;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
@@ -228,6 +231,11 @@ public class WoWStyleNametagsOverlay extends Overlay
             return null;
         }
 
+        if (plugin.isNpcNameExcluded(text))
+        {
+            return null;
+        }
+
         // Hover-only gate: show if the cursor is over this NPC (by index or name match).
         if (plugin.hoverOnly
                 && plugin.hoverIndex != npc.getIndex()
@@ -385,17 +393,79 @@ public class WoWStyleNametagsOverlay extends Overlay
         }
         else
         {
-            if (!plugin.enableOtherPlayers) return null;
+            if (plugin.isPlayerNameExcluded(name))
+            {
+                return null;
+            }
+
             // Apply hover-only to other players (matched by name via hoverTarget).
             if (plugin.hoverOnly
                     && (plugin.hoverTarget == null || !plugin.hoverTarget.equalsIgnoreCase(name)))
             {
                 return null;
             }
-            colour           = plugin.otherPlayersColour;
-            outlineEnabled   = plugin.otherPlayersOutlineEnabled;
-            outlineColour    = plugin.otherPlayersOutlineColour;
-            outlineThickness = plugin.otherPlayersOutlineThickness;
+
+            boolean isFriend = false;
+            boolean isClanMember = false;
+            boolean isClanChatMember = false;
+            boolean isGuestClanMember = false;
+            boolean isGuestInYourClan = false;
+            try
+            {
+                isFriend = p.isFriend();
+                isClanMember = p.isClanMember();
+                isClanChatMember = p.isFriendsChatMember();
+                isGuestClanMember = isGuestClanMember(p);
+                isGuestInYourClan = isGuestInYourClan(p);
+            }
+            catch (Exception ignored) {}
+
+            // Priority order for overlapping relationships:
+            // friends > clan members > clan members (guest) > guests in your clan
+            // > chat channel members > other players.
+            if (isFriend && plugin.enableFriendPlayers)
+            {
+                colour           = plugin.friendPlayersColour;
+                outlineEnabled   = plugin.friendPlayersOutlineEnabled;
+                outlineColour    = plugin.friendPlayersOutlineColour;
+                outlineThickness = plugin.friendPlayersOutlineThickness;
+            }
+            else if (isClanMember && plugin.enableClanMembers)
+            {
+                colour           = plugin.clanMembersColour;
+                outlineEnabled   = plugin.clanMembersOutlineEnabled;
+                outlineColour    = plugin.clanMembersOutlineColour;
+                outlineThickness = plugin.clanMembersOutlineThickness;
+            }
+            else if (isGuestClanMember && plugin.enableGuestClanMembers)
+            {
+                colour           = plugin.guestClanMembersColour;
+                outlineEnabled   = plugin.guestClanMembersOutlineEnabled;
+                outlineColour    = plugin.guestClanMembersOutlineColour;
+                outlineThickness = plugin.guestClanMembersOutlineThickness;
+            }
+            else if (isGuestInYourClan && plugin.enableGuestsInYourClan)
+            {
+                colour           = plugin.guestsInYourClanColour;
+                outlineEnabled   = plugin.guestsInYourClanOutlineEnabled;
+                outlineColour    = plugin.guestsInYourClanOutlineColour;
+                outlineThickness = plugin.guestsInYourClanOutlineThickness;
+            }
+            else if (isClanChatMember && plugin.enableClanChatMembers)
+            {
+                colour           = plugin.clanChatMembersColour;
+                outlineEnabled   = plugin.clanChatMembersOutlineEnabled;
+                outlineColour    = plugin.clanChatMembersOutlineColour;
+                outlineThickness = plugin.clanChatMembersOutlineThickness;
+            }
+            else
+            {
+                if (!plugin.enableOtherPlayers) return null;
+                colour           = plugin.otherPlayersColour;
+                outlineEnabled   = plugin.otherPlayersOutlineEnabled;
+                outlineColour    = plugin.otherPlayersOutlineColour;
+                outlineThickness = plugin.otherPlayersOutlineThickness;
+            }
         }
 
         int offset = plugin.anchorBelow
@@ -407,10 +477,44 @@ public class WoWStyleNametagsOverlay extends Overlay
             return null;
         }
 
-        // Self always sorts first (distance 0) so it is never culled and keeps its natural position.
+        // Self uses distance 0, so it is strongly prioritized during culling.
         int dist = isSelf ? 0 : localWp.distanceTo(p.getWorldLocation());
         return new TagEntry(name, colour, outlineEnabled, outlineColour, outlineThickness,
                 dist, loc.getX(), loc.getY());
+    }
+
+    private boolean isGuestClanMember(Player p)
+    {
+        ClanChannel guestChannel = client.getGuestClanChannel();
+        if (guestChannel == null || p == null || p.getName() == null)
+        {
+            return false;
+        }
+
+        ClanChannelMember member = guestChannel.findMember(p.getName());
+        if (member == null || member.getRank() == null)
+        {
+            return false;
+        }
+
+        return !ClanRank.GUEST.equals(member.getRank());
+    }
+
+    private boolean isGuestInYourClan(Player p)
+    {
+        ClanChannel clanChannel = client.getClanChannel();
+        if (clanChannel == null || p == null || p.getName() == null)
+        {
+            return false;
+        }
+
+        ClanChannelMember member = clanChannel.findMember(p.getName());
+        if (member == null || member.getRank() == null)
+        {
+            return false;
+        }
+
+        return ClanRank.GUEST.equals(member.getRank());
     }
 
     /** Draws a fully-resolved {@link TagEntry} at its (possibly stacked) screen position. */

@@ -5,6 +5,7 @@ import com.google.inject.Inject;
 import com.google.inject.Provides;
 import java.awt.Color;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -115,6 +116,36 @@ public class WoWStyleNametagsPlugin extends Plugin
     Color otherPlayersOutlineColour;
     int otherPlayersOutlineThickness;
 
+    boolean enableFriendPlayers;
+    Color friendPlayersColour;
+    boolean friendPlayersOutlineEnabled;
+    Color friendPlayersOutlineColour;
+    int friendPlayersOutlineThickness;
+
+    boolean enableClanMembers;
+    Color clanMembersColour;
+    boolean clanMembersOutlineEnabled;
+    Color clanMembersOutlineColour;
+    int clanMembersOutlineThickness;
+
+    boolean enableClanChatMembers;
+    Color clanChatMembersColour;
+    boolean clanChatMembersOutlineEnabled;
+    Color clanChatMembersOutlineColour;
+    int clanChatMembersOutlineThickness;
+
+    boolean enableGuestClanMembers;
+    Color guestClanMembersColour;
+    boolean guestClanMembersOutlineEnabled;
+    Color guestClanMembersOutlineColour;
+    int guestClanMembersOutlineThickness;
+
+    boolean enableGuestsInYourClan;
+    Color guestsInYourClanColour;
+    boolean guestsInYourClanOutlineEnabled;
+    Color guestsInYourClanOutlineColour;
+    int guestsInYourClanOutlineThickness;
+
     // Followers
     boolean enableMyFollowers;
     Color myFollowerColour;
@@ -127,6 +158,9 @@ public class WoWStyleNametagsPlugin extends Plugin
     boolean otherPlayersFollowerOutlineEnabled;
     Color otherPlayersFollowerOutlineColour;
     int otherPlayersFollowerOutlineThickness;
+
+    Set<String> excludedNpcNames;
+    Set<String> excludedPlayerNames;
 
     // --- Runtime NPC tracking ---
     private final Map<Integer, NPC> trackedNpcs = new ConcurrentHashMap<>();
@@ -189,8 +223,15 @@ public class WoWStyleNametagsPlugin extends Plugin
         // Player and follower toggles
         enableSelfPlayer = config.enableSelfPlayer();
         enableOtherPlayers = config.enableOtherPlayers();
+        enableFriendPlayers = config.enableFriendPlayers();
+        enableClanMembers = config.enableClanMembers();
+        enableClanChatMembers = config.enableClanChatMembers();
+        enableGuestClanMembers = config.enableGuestClanMembers();
+        enableGuestsInYourClan = config.enableGuestsInYourClan();
         enableMyFollowers = config.enableMyFollowers();
         enableOtherPlayersFollowers = config.enableOtherPlayersFollowers();
+        excludedNpcNames = parseNameSet(config.excludedNpcNames());
+        excludedPlayerNames = parseNameSet(config.excludedPlayerNames());
 
         // Positioning
         verticalOffset = config.verticalOffset();
@@ -204,6 +245,11 @@ public class WoWStyleNametagsPlugin extends Plugin
         talkableColour = config.talkableColour();
         selfPlayerColour = config.selfPlayerColour();
         otherPlayersColour = config.otherPlayersColour();
+        friendPlayersColour = config.friendPlayersColour();
+        clanMembersColour = config.clanMembersColour();
+        clanChatMembersColour = config.clanChatMembersColour();
+        guestClanMembersColour = config.guestClanMembersColour();
+        guestsInYourClanColour = config.guestsInYourClanColour();
         myFollowerColour = config.myFollowerColour();
         otherPlayersFollowerColour = config.otherPlayersFollowerColour();
 
@@ -228,6 +274,26 @@ public class WoWStyleNametagsPlugin extends Plugin
         otherPlayersOutlineColour = config.otherPlayersOutlineColour();
         otherPlayersOutlineThickness = config.otherPlayersOutlineThickness();
 
+        friendPlayersOutlineEnabled = config.friendPlayersOutlineEnabled();
+        friendPlayersOutlineColour = config.friendPlayersOutlineColour();
+        friendPlayersOutlineThickness = config.friendPlayersOutlineThickness();
+
+        clanMembersOutlineEnabled = config.clanMembersOutlineEnabled();
+        clanMembersOutlineColour = config.clanMembersOutlineColour();
+        clanMembersOutlineThickness = config.clanMembersOutlineThickness();
+
+        clanChatMembersOutlineEnabled = config.clanChatMembersOutlineEnabled();
+        clanChatMembersOutlineColour = config.clanChatMembersOutlineColour();
+        clanChatMembersOutlineThickness = config.clanChatMembersOutlineThickness();
+
+        guestClanMembersOutlineEnabled = config.guestClanMembersOutlineEnabled();
+        guestClanMembersOutlineColour = config.guestClanMembersOutlineColour();
+        guestClanMembersOutlineThickness = config.guestClanMembersOutlineThickness();
+
+        guestsInYourClanOutlineEnabled = config.guestsInYourClanOutlineEnabled();
+        guestsInYourClanOutlineColour = config.guestsInYourClanOutlineColour();
+        guestsInYourClanOutlineThickness = config.guestsInYourClanOutlineThickness();
+
         selfPlayerOutlineEnabled = config.selfPlayerOutlineEnabled();
         selfPlayerOutlineColour = config.selfPlayerOutlineColour();
         selfPlayerOutlineThickness = config.selfPlayerOutlineThickness();
@@ -238,6 +304,42 @@ public class WoWStyleNametagsPlugin extends Plugin
         otherPlayersFollowerOutlineEnabled = config.otherPlayersFollowerOutlineEnabled();
         otherPlayersFollowerOutlineColour = config.otherPlayersFollowerOutlineColour();
         otherPlayersFollowerOutlineThickness = config.otherPlayersFollowerOutlineThickness();
+    }
+
+    public boolean isNpcNameExcluded(String npcName)
+    {
+        return excludedNpcNames != null && excludedNpcNames.contains(normalizeName(npcName));
+    }
+
+    public boolean isPlayerNameExcluded(String playerName)
+    {
+        return excludedPlayerNames != null && excludedPlayerNames.contains(normalizeName(playerName));
+    }
+
+    private static Set<String> parseNameSet(String raw)
+    {
+        Set<String> out = new HashSet<>();
+        if (raw == null || raw.trim().isEmpty())
+        {
+            return out;
+        }
+
+        String[] parts = raw.split("[,;\\r\\n]+");
+        for (String part : parts)
+        {
+            String normalized = normalizeName(part);
+            if (!normalized.isEmpty())
+            {
+                out.add(normalized);
+            }
+        }
+
+        return out;
+    }
+
+    private static String normalizeName(String raw)
+    {
+        return raw == null ? "" : raw.trim().toLowerCase(Locale.ROOT);
     }
 
     public boolean hasAttackOption(NPC npc)
