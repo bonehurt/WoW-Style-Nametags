@@ -10,18 +10,31 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import net.runelite.api.Actor;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
+import net.runelite.api.GameState;
 import net.runelite.api.MenuAction;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.NPC;
+import net.runelite.api.Renderable;
+import net.runelite.api.events.BeforeRender;
+import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.MenuEntryAdded;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.NpcChanged;
 import net.runelite.api.events.NpcDespawned;
 import net.runelite.api.events.NpcSpawned;
+import net.runelite.client.callback.RenderCallback;
+import net.runelite.client.callback.RenderCallbackManager;
+import net.runelite.client.chat.ChatColorType;
+import net.runelite.client.chat.ChatMessageBuilder;
+import net.runelite.client.chat.ChatMessageManager;
+import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
+import net.runelite.client.events.PluginChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
@@ -33,6 +46,10 @@ import net.runelite.client.ui.overlay.OverlayManager;
 )
 public class WoWStyleNametagsPlugin extends Plugin
 {
+    private static final String CURRENT_VERSION = "1.2";
+    private static final String UPDATE_NOTICE_VERSION_KEY = "updateNoticeVersion";
+    private static final String UPDATE_NOTICE_TEXT = "Allowed dynamic culling of nametags and minor fixes.";
+
     private static final Set<Integer> NPC_MENU_ACTIONS = ImmutableSet.of(
         MenuAction.NPC_FIRST_OPTION.getId(),
         MenuAction.NPC_SECOND_OPTION.getId(),
@@ -77,6 +94,7 @@ public class WoWStyleNametagsPlugin extends Plugin
     int verticalOffset;
     int maxEntities;
     boolean stackTags;
+    boolean respectEntityHiders;
 
     // NPC categories
     boolean enableAttackable;
@@ -164,6 +182,7 @@ public class WoWStyleNametagsPlugin extends Plugin
 
     // --- Runtime NPC tracking ---
     private final Map<Integer, NPC> trackedNpcs = new ConcurrentHashMap<>();
+    private final Set<Actor> visibleActorsThisFrame = ConcurrentHashMap.newKeySet();
     /**
      * NPC <em>composition IDs</em> ({@link NPC#getId()}) where a Talk-to option has been
      * observed. Keyed on composition ID (NPC type), not instance index, so the result
@@ -176,6 +195,22 @@ public class WoWStyleNametagsPlugin extends Plugin
      * {@link #persistentTalkable}.
      */
     private final Set<Integer> persistentNotTalkable = ConcurrentHashMap.newKeySet();
+    private volatile boolean sawSceneActorThisFrame;
+    private boolean updateNoticePending;
+    private final RenderCallback visibilityTracker = new RenderCallback()
+    {
+        @Override
+        public boolean addEntity(Renderable renderable, boolean ui)
+        {
+            if (!ui && renderable instanceof Actor)
+            {
+                visibleActorsThisFrame.add((Actor) renderable);
+                sawSceneActorThisFrame = true;
+            }
+
+            return true;
+        }
+    };
 
     @Inject
     private WoWStyleNametagsConfig config;
@@ -187,7 +222,16 @@ public class WoWStyleNametagsPlugin extends Plugin
     private WoWStyleNametagsOverlay overlay;
 
     @Inject
+    private ConfigManager configManager;
+
+    @Inject
     private OverlayManager overlayManager;
+
+    @Inject
+    private RenderCallbackManager renderCallbackManager;
+
+    @Inject
+    private ChatMessageManager chatMessageManager;
 
     @Provides
     WoWStyleNametagsConfig providesConfig(ConfigManager configManager)
@@ -199,12 +243,19 @@ public class WoWStyleNametagsPlugin extends Plugin
     protected void startUp() throws Exception
     {
         cacheConfig();
+        clearTransientSceneState();
+        updateRenderCallbackRegistration();
+        updateNoticePending = shouldShowUpdateNotice();
         overlayManager.add(overlay);
+        showUpdateNoticeIfReady();
     }
 
     @Override
     protected void shutDown() throws Exception
     {
+        renderCallbackManager.unregister(visibilityTracker);
+        clearTransientSceneState();
+        updateNoticePending = false;
         overlayManager.remove(overlay);
     }
 
@@ -213,6 +264,7 @@ public class WoWStyleNametagsPlugin extends Plugin
         // Order matches config menu positions
         hoverOnly = config.hoverOnly();
         anchorBelow = config.anchorBelow();
+        respectEntityHiders = config.respectEntityHiders();
 
         // NPC enable toggles
         enableAttackable = config.enableAttackable();
@@ -306,6 +358,57 @@ public class WoWStyleNametagsPlugin extends Plugin
         otherPlayersFollowerOutlineThickness = config.otherPlayersFollowerOutlineThickness();
     }
 
+    private void updateRenderCallbackRegistration()
+    {
+        renderCallbackManager.unregister(visibilityTracker);
+        visibleActorsThisFrame.clear();
+        sawSceneActorThisFrame = false;
+
+        if (respectEntityHiders)
+        {
+            renderCallbackManager.register(visibilityTracker);
+        }
+    }
+
+    private void clearTransientSceneState()
+    {
+        trackedNpcs.clear();
+        hoverIndex = -1;
+        hoverTarget = null;
+        visibleActorsThisFrame.clear();
+        sawSceneActorThisFrame = false;
+    }
+
+    private boolean shouldShowUpdateNotice()
+    {
+        String seenVersion = configManager.getConfiguration(WoWStyleNametagsConfig.GROUP, UPDATE_NOTICE_VERSION_KEY);
+        return !CURRENT_VERSION.equals(seenVersion);
+    }
+
+    private void showUpdateNoticeIfReady()
+    {
+        if (!updateNoticePending || client.getGameState() != GameState.LOGGED_IN)
+        {
+            return;
+        }
+
+        String message = new ChatMessageBuilder()
+            .append(ChatColorType.HIGHLIGHT)
+            .append("WoW-Style Nametags Updated: v")
+            .append(CURRENT_VERSION)
+            .append(" - ")
+            .append(UPDATE_NOTICE_TEXT)
+            .build();
+
+        chatMessageManager.queue(QueuedMessage.builder()
+            .type(ChatMessageType.CONSOLE)
+            .runeLiteFormattedMessage(message)
+            .build());
+
+        configManager.setConfiguration(WoWStyleNametagsConfig.GROUP, UPDATE_NOTICE_VERSION_KEY, CURRENT_VERSION);
+        updateNoticePending = false;
+    }
+
     public boolean isNpcNameExcluded(String npcName)
     {
         return excludedNpcNames != null && excludedNpcNames.contains(normalizeName(npcName));
@@ -314,6 +417,16 @@ public class WoWStyleNametagsPlugin extends Plugin
     public boolean isPlayerNameExcluded(String playerName)
     {
         return excludedPlayerNames != null && excludedPlayerNames.contains(normalizeName(playerName));
+    }
+
+    public boolean shouldRenderNametagForActor(Actor actor)
+    {
+        if (actor == null || !respectEntityHiders)
+        {
+            return actor != null;
+        }
+
+        return !sawSceneActorThisFrame || visibleActorsThisFrame.contains(actor);
     }
 
     private static Set<String> parseNameSet(String raw)
@@ -339,7 +452,42 @@ public class WoWStyleNametagsPlugin extends Plugin
 
     private static String normalizeName(String raw)
     {
-        return raw == null ? "" : raw.trim().toLowerCase(Locale.ROOT);
+        String cleaned = stripNameMarkup(raw);
+        return cleaned == null ? "" : cleaned.toLowerCase(Locale.ROOT);
+    }
+
+    // Strips formatting prefixes from names (e.g. <col=...>, <cox=...>) so
+    // matching and rendering use the visible text only.
+    String sanitizeEntityName(String raw)
+    {
+        return stripNameMarkup(raw);
+    }
+
+    private static String stripNameMarkup(String raw)
+    {
+        if (raw == null)
+        {
+            return null;
+        }
+
+        try
+        {
+            String cleaned = raw.replaceAll("<[^>]+>", "").trim();
+            if (cleaned.isEmpty() || "null".equalsIgnoreCase(cleaned))
+            {
+                return null;
+            }
+            return cleaned;
+        }
+        catch (Exception ignored)
+        {
+            String cleaned = raw.trim();
+            if (cleaned.isEmpty() || "null".equalsIgnoreCase(cleaned))
+            {
+                return null;
+            }
+            return cleaned;
+        }
     }
 
     public boolean hasAttackOption(NPC npc)
@@ -555,7 +703,38 @@ public class WoWStyleNametagsPlugin extends Plugin
         if (WoWStyleNametagsConfig.GROUP.equals(event.getGroup()))
         {
             cacheConfig();
+            updateRenderCallbackRegistration();
         }
+    }
+
+    @Subscribe
+    public void onGameStateChanged(GameStateChanged event)
+    {
+        if (event.getGameState() != GameState.LOGGED_IN)
+        {
+            clearTransientSceneState();
+            return;
+        }
+
+        showUpdateNoticeIfReady();
+    }
+
+    @Subscribe
+    public void onBeforeRender(BeforeRender event)
+    {
+        visibleActorsThisFrame.clear();
+        sawSceneActorThisFrame = false;
+    }
+
+    @Subscribe
+    public void onPluginChanged(PluginChanged event)
+    {
+        if (event.getPlugin() == this || !respectEntityHiders)
+        {
+            return;
+        }
+
+        updateRenderCallbackRegistration();
     }
 
     @Subscribe
@@ -592,23 +771,23 @@ public class WoWStyleNametagsPlugin extends Plugin
 
     private String sanitizeTarget(String raw)
     {
-        if (raw == null)
+        String s = stripNameMarkup(raw);
+        if (s == null)
         {
             return null;
         }
+
         try
         {
-            // Strip RuneScape colour/style tags e.g. <col=ff0000>, </col>, <img=N>
-            String s = raw.replaceAll("<[^>]+>", "").trim();
             // Strip combat-level suffix that appears in player targets: " (level-126)"
             s = s.replaceAll("(?i)\\s*\\(level-\\d+\\)\\s*$", "").trim();
             // Strip common action prefixes that sometimes appear on target strings
             s = s.replaceAll("(?i)^(talk-?to\\s+|examine\\s+|walk here\\s+)", "").trim();
-            return s;
+            return s.isEmpty() ? null : s;
         }
-        catch (Exception e)
+        catch (Exception ignored)
         {
-            return raw;
+            return s;
         }
     }
 

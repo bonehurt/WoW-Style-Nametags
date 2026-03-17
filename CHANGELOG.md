@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2] - 2026-03-17
+
+### Added
+- Added optional compatibility with render-hiding plugins so nametags stay hidden when the underlying actor is culled, such as with Dynamic Entity Hider.
+- Added update notification ping on first launch after update.
+
+### Fixed
+- Fixed NPC nametags that included inline formatting prefixes (e.g. `<cox=00ffff>Glowing crystal`) rendering the raw tag text instead of the visible name.
+- Fixed issue with follower nametag remaining on screen on world hop or level change.
+
+## Changes
+- Updated README screenshots to more of a vanilla look.
+
 ## [1.1] - 2026-03-16
 
 ### Added
@@ -15,3 +28,13 @@
 ### Fixed
 - Fixed inaccurate code comments to match actual behavior and grouping.
 - Corrected minor config description typo for aggressive NPC toggle text.
+
+## [1.0]
+
+### Initial release
+- Initial release with support for:
+    - NPC nametags (aggressive, neutral, passive)
+    - Player nametags (self, others, followers)
+    - WoW-style vertical stacking to prevent overlapping nametags
+    - Customisable colours and outlines
+    - Anchor and offset controls

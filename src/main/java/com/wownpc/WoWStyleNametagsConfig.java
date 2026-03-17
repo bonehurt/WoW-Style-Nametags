@@ -24,17 +24,6 @@ public interface WoWStyleNametagsConfig extends Config
     }
 
     @ConfigItem(
-        position = 2,
-        keyName = "anchorBelow",
-        name = "Anchor below",
-        description = "If enabled, position the nametag below entities instead of above"
-    )
-    default boolean anchorBelow()
-    {
-        return false;
-    }
-
-    @ConfigItem(
         position = 3,
         keyName = "excludedNpcNames",
         name = "Excluded NPC names",
@@ -54,18 +43,6 @@ public interface WoWStyleNametagsConfig extends Config
     default String excludedPlayerNames()
     {
         return "";
-    }
-
-    @ConfigItem(
-        position = 13,
-        keyName = "verticalOffset",
-        name = "Vertical offset",
-        description = "Pixels to offset the nametag (when above: adds to height; when below: subtracts from height)"
-    )
-    @Range(min = 0, max = 9999)
-    default int verticalOffset()
-    {
-        return 40;
     }
 
     @ConfigItem(
@@ -913,8 +890,8 @@ public interface WoWStyleNametagsConfig extends Config
     }
 
     @ConfigSection(
-        name = "Culling & Stacking",
-        description = "Limit the number of visible nametags and control overlap behaviour",
+        name = "Culling & Positioning",
+        description = "Control nametag placement, overlap behaviour, and compatibility with entity-hiding plugins",
         position = 22
     )
     String cullingSection = "cullingSection";
@@ -934,6 +911,31 @@ public interface WoWStyleNametagsConfig extends Config
 
     @ConfigItem(
         position = 24,
+        keyName = "verticalOffset",
+        name = "Vertical offset",
+        description = "Pixels to offset the nametag (when above: adds to height; when below: subtracts from height)",
+        section = "cullingSection"
+    )
+    @Range(min = 0, max = 9999)
+    default int verticalOffset()
+    {
+        return 40;
+    }
+
+    @ConfigItem(
+        position = 25,
+        keyName = "anchorBelow",
+        name = "Anchor below",
+        description = "If enabled, position the nametag below entities instead of above",
+        section = "cullingSection"
+    )
+    default boolean anchorBelow()
+    {
+        return false;
+    }
+
+    @ConfigItem(
+        position = 26,
         keyName = "stackTags",
         name = "Stack overlapping nametags",
         description = "Shift nametags that would overlap vertically, closest entity keeps its natural position",
@@ -942,5 +944,17 @@ public interface WoWStyleNametagsConfig extends Config
     default boolean stackTags()
     {
         return false;
+    }
+
+    @ConfigItem(
+        position = 27,
+        keyName = "respectEntityHiders",
+        name = "Respect entity hiders",
+        description = "Hide nametags when another render-hiding plugin suppresses the actor, e.g. Dynamic Entity Hider",
+        section = "cullingSection"
+    )
+    default boolean respectEntityHiders()
+    {
+        return true;
     }
 }

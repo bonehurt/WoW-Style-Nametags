@@ -225,8 +225,13 @@ public class WoWStyleNametagsOverlay extends Overlay
         {
             return null;
         }
-        String text = npc.getName();
-        if (text == null || text.isEmpty() || "null".equals(text))
+        String text = plugin.sanitizeEntityName(npc.getName());
+        if (text == null)
+        {
+            return null;
+        }
+
+        if (!plugin.shouldRenderNametagForActor(npc))
         {
             return null;
         }
@@ -371,8 +376,13 @@ public class WoWStyleNametagsOverlay extends Overlay
         {
             return null;
         }
-        String name = p.getName();
-        if (name == null || name.isEmpty() || "null".equals(name))
+        String name = plugin.sanitizeEntityName(p.getName());
+        if (name == null)
+        {
+            return null;
+        }
+
+        if (!plugin.shouldRenderNametagForActor(p))
         {
             return null;
         }
