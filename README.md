@@ -2,7 +2,7 @@
 
 Displays floating nametags above NPCs and players in a style inspired by World of Warcraft. Each entity type can be made visible or hidden and is colour-coded to make it immediately clear whether an NPC is aggressive, passive, friendly, or neutral, never right click EVER again (slight exaggeration).
 
-![Ooo look at all the nametags](<screenshots/Screenshot_2026-03-17_18-08-19.png>)
+![Ooo look at all the nametags](screenshots/2026-03-17_18-08-19.png)
 
 ## Features
 
@@ -16,7 +16,7 @@ NPCs are automatically classified and coloured by their type:
 | Friendly | Green | NPCs with a Talk-to option (e.g. shopkeepers, quest NPCs) |
 | Neutral | Yellow | NPCs that are both attackable and have talk-to options; (e.g. 'Man', 'Woman' entities in Lumbridge) |
 
-![Angry Chicken](<screenshots\2026-03-17_18-13-13.png>)
+![Angry Chicken](screenshots/2026-03-17_18-13-13.png)
 
 ### Player & follower nametags
 - **Your character**
@@ -56,9 +56,9 @@ Limit the number of nametags shown at once. Nametags are sorted by distance, clo
 When multiple nametags would overlap on screen, they are automatically shifted vertically so no two tags obscure each other - like in World of Warcraft. The closest entity keeps its default position; further entities stack above (or below, based on your anchor setting).
 
 From this...
-![Ewww](<screenshots\2026-03-17_18-00-12.png>)
+![Ewww](screenshots/2026-03-17_18-00-12.png)
 ...to this!
-![Ahhh](<screenshots\2026-03-17_18-00-09.png>)
+![Ahhh](screenshots/2026-03-17_18-00-09.png)
 
 ### Colour & outline customisation
 Every category has its own independently configurable:
@@ -69,7 +69,7 @@ Every category has its own independently configurable:
 - **Anchor above / below** — place the label above or below the entity
 - **Vertical offset** — fine-tune the exact pixel distance from the entity
 
-![Angry Chicken, but below](<screenshots\2026-03-17_18-13-09.png>)
+![Angry Chicken, but below](screenshots/2026-03-17_18-13-09.png)
 
 ---
 
