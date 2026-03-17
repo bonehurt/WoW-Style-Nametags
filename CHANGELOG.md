@@ -10,7 +10,7 @@
 - Fixed NPC nametags that included inline formatting prefixes (e.g. `<cox=00ffff>Glowing crystal`) rendering the raw tag text instead of the visible name.
 - Fixed issue with follower nametag remaining on screen on world hop or level change.
 
-## Changes
+### Changes
 - Updated README screenshots to more of a vanilla look.
 
 ## [1.1] - 2026-03-16
