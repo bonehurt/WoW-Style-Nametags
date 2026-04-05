@@ -73,4 +73,4 @@ Every category has its own independently configurable:
 
 ---
 
-<sub>Current version: 1.2</sub>
+<sub>Current version: 1.2.1</sub>

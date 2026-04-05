@@ -46,7 +46,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 )
 public class WoWStyleNametagsPlugin extends Plugin
 {
-    private static final String CURRENT_VERSION = "1.2";
+    private static final String CURRENT_VERSION = "1.2.1";
     private static final String UPDATE_NOTICE_VERSION_KEY = "updateNoticeVersion";
     private static final String UPDATE_NOTICE_TEXT = "Allowed dynamic culling of nametags and minor fixes.";
 

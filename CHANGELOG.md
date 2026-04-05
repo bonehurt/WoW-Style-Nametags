@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.2] - 2026-03-17
+## [1.2.1] - 2026-04-05
 
 ### Added
 - Added optional compatibility with render-hiding plugins so nametags stay hidden when the underlying actor is culled, such as with Dynamic Entity Hider.
