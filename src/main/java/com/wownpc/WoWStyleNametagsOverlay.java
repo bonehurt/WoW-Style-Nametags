@@ -12,7 +12,9 @@ import java.awt.font.TextLayout;
 import java.awt.geom.AffineTransform;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import net.runelite.api.Actor;
 import net.runelite.api.Client;
 import net.runelite.api.NPC;
@@ -86,6 +88,43 @@ public class WoWStyleNametagsOverlay extends Overlay
         WorldPoint localWp = localPlayer.getWorldLocation();
         List<TagEntry> entries = new ArrayList<>();
 
+        // Populate stacked tiles and visible player tiles for client-side stacking detection.
+        plugin.stackedTiles.clear();
+        plugin.visiblePlayerTiles.clear();
+        if (localWp != null)
+        {
+            plugin.visiblePlayerTiles.add(localWp);
+        }
+
+        Map<WorldPoint, Integer> playerCounts = new HashMap<>();
+        try
+        {
+            var wv = client.getTopLevelWorldView();
+            if (wv != null)
+            {
+                for (var p : wv.players())
+                {
+                    if (p != null)
+                    {
+                        WorldPoint wp = p.getWorldLocation();
+                        playerCounts.put(wp, playerCounts.getOrDefault(wp, 0) + 1);
+                        if (plugin.isActorVisibleThisFrame(p))
+                        {
+                            plugin.visiblePlayerTiles.add(wp);
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ignored) {}
+        for (Map.Entry<WorldPoint, Integer> e : playerCounts.entrySet())
+        {
+            if (e.getValue() > 1)
+            {
+                plugin.stackedTiles.add(e.getKey());
+            }
+        }
+
         // --- Collect NPC entries ---
         for (NPC npc : plugin.getTrackedNpcs())
         {
@@ -133,7 +172,7 @@ public class WoWStyleNametagsOverlay extends Overlay
             resolveOverlaps(graphics, entries);
         }
 
-        // --- Render ---
+        // --- Render nametags ---
         for (TagEntry entry : entries)
         {
             renderTag(graphics, entry);
@@ -481,6 +520,13 @@ public class WoWStyleNametagsOverlay extends Overlay
         int offset = plugin.anchorBelow
                 ? -plugin.verticalOffset
                 : p.getLogicalHeight() + plugin.verticalOffset;
+
+        // Adjust for overhead prayer/icon to prevent nameplate from being hidden below it
+        if (p.getOverheadIcon() != null)
+        {
+            offset += plugin.overheadIconOffset;
+        }
+
         Point loc = p.getCanvasTextLocation(graphics, name, offset);
         if (loc == null)
         {

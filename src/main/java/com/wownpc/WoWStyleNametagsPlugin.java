@@ -17,7 +17,9 @@ import net.runelite.api.GameState;
 import net.runelite.api.MenuAction;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.NPC;
+import net.runelite.api.Player;
 import net.runelite.api.Renderable;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.BeforeRender;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.MenuEntryAdded;
@@ -195,8 +197,16 @@ public class WoWStyleNametagsPlugin extends Plugin
      * {@link #persistentTalkable}.
      */
     private final Set<Integer> persistentNotTalkable = ConcurrentHashMap.newKeySet();
-    private volatile boolean sawSceneActorThisFrame;
-    private boolean updateNoticePending;
+    final Set<WorldPoint> stackedTiles = ConcurrentHashMap.newKeySet();
+    final Set<WorldPoint> visiblePlayerTiles = ConcurrentHashMap.newKeySet();
+
+    // --- Update notice state ---
+    private boolean updateNoticePending = false;
+
+    int overheadIconOffset;
+
+    // --- Transient scene state (cleared on game state changes) ---
+    private boolean sawSceneActorThisFrame = false;
     private final RenderCallback visibilityTracker = new RenderCallback()
     {
         @Override
@@ -265,6 +275,7 @@ public class WoWStyleNametagsPlugin extends Plugin
         hoverOnly = config.hoverOnly();
         anchorBelow = config.anchorBelow();
         respectEntityHiders = config.respectEntityHiders();
+        overheadIconOffset = config.overheadIconOffset();
 
         // NPC enable toggles
         enableAttackable = config.enableAttackable();
@@ -377,6 +388,8 @@ public class WoWStyleNametagsPlugin extends Plugin
         hoverTarget = null;
         visibleActorsThisFrame.clear();
         sawSceneActorThisFrame = false;
+        stackedTiles.clear();
+        visiblePlayerTiles.clear();
     }
 
     private boolean shouldShowUpdateNotice()
@@ -421,12 +434,49 @@ public class WoWStyleNametagsPlugin extends Plugin
 
     public boolean shouldRenderNametagForActor(Actor actor)
     {
-        if (actor == null || !respectEntityHiders)
+        if (actor == null)
         {
-            return actor != null;
+            return false;
         }
 
-        return !sawSceneActorThisFrame || visibleActorsThisFrame.contains(actor);
+        if (actor instanceof Player)
+        {
+            if (!respectEntityHiders)
+            {
+                return true;
+            }
+
+            if (visibleActorsThisFrame.contains(actor))
+            {
+                return true;
+            }
+
+            // If not visible but on a stacked tile with another visible player on the same tile,
+            // assume this actor was only culled by client stacking and show its nametag.
+            WorldPoint wp = ((Player) actor).getWorldLocation();
+            if (wp != null && stackedTiles.contains(wp) && visiblePlayerTiles.contains(wp))
+            {
+                return true;
+            }
+
+            // Otherwise, likely hidden by an entity hider plugin, hide nametag
+            return false;
+        }
+        else
+        {
+            // For NPCs, respect entity hiders as before
+            if (!respectEntityHiders)
+            {
+                return true;
+            }
+
+            return !sawSceneActorThisFrame || visibleActorsThisFrame.contains(actor);
+        }
+    }
+
+    boolean isActorVisibleThisFrame(Actor actor)
+    {
+        return visibleActorsThisFrame.contains(actor);
     }
 
     private static Set<String> parseNameSet(String raw)

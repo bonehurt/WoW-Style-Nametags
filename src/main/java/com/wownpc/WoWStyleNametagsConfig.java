@@ -957,4 +957,17 @@ public interface WoWStyleNametagsConfig extends Config
     {
         return true;
     }
+
+    @ConfigItem(
+        position = 28,
+        keyName = "overheadIconOffset",
+        name = "Extra overhead lift for icons",
+        description = "Extra upward offset added to nametags when an overhead icon is active (prayers, PK skull, etc.). Increase if nametag still overlaps the icon",
+        section = "cullingSection"
+    )
+    @Range(min = 0, max = 150)
+    default int overheadIconOffset()
+    {
+        return 25;
+    }
 }

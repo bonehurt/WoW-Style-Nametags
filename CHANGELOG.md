@@ -3,6 +3,15 @@
 ## [1.2.1] - 2026-04-05
 
 ### Added
+- Added configuration option for the overhead icon vertical offset fix.
+
+### Fixed
+- Nameplates now appear above overhead prayers/icons instead of being hidden below them.
+- Stacked players unculled by entity hiders now show nametags when "Respect entity hiders" is enabled.
+
+## [1.2] - 2026-03-17
+
+### Added
 - Added optional compatibility with render-hiding plugins so nametags stay hidden when the underlying actor is culled, such as with Dynamic Entity Hider.
 - Added update notification ping on first launch after update.
 
