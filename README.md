@@ -15,7 +15,7 @@ NPCs are automatically classified and coloured by their type:
 | Passive | Orange | Attack-only NPCs at or below the non-aggro threshold (combat level at most 2x yours) |
 | Neutral | Yellow | NPCs that are both attackable and have a non-attack interaction (Talk-to or other interactions) |
 | Friendly | Green | NPCs with a Talk-to option (e.g. shopkeepers, quest NPCs) |
-| Friendly non-talkers | Pink | NPCs with non-attack interactions that are not Talk-to (e.g. Catch, Shear, Pet) |
+| Friendly non-talkers | Pink | NPCs with non-attack interactions that are not Talk-to'able (e.g. Catch, Shear, Pet) |
 
 Notes:
 - Examine-only NPCs are hidden by default to avoid false positives (for example, trees/resource-like entities).
