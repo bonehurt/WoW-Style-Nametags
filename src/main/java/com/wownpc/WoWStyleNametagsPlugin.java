@@ -48,18 +48,9 @@ import net.runelite.client.ui.overlay.OverlayManager;
 )
 public class WoWStyleNametagsPlugin extends Plugin
 {
-    private static final String CURRENT_VERSION = "1.2.1";
+    private static final String CURRENT_VERSION = "1.3";
     private static final String UPDATE_NOTICE_VERSION_KEY = "updateNoticeVersion";
-    private static final String UPDATE_NOTICE_TEXT = "Allowed dynamic culling of nametags and minor fixes.";
-
-    private static final Set<Integer> NPC_MENU_ACTIONS = ImmutableSet.of(
-        MenuAction.NPC_FIRST_OPTION.getId(),
-        MenuAction.NPC_SECOND_OPTION.getId(),
-        MenuAction.NPC_THIRD_OPTION.getId(),
-        MenuAction.NPC_FOURTH_OPTION.getId(),
-        MenuAction.NPC_FIFTH_OPTION.getId(),
-        MenuAction.EXAMINE_NPC.getId()
-    );
+    private static final String UPDATE_NOTICE_TEXT = "New NPC nametag, improved NPC detection + Other bug fixes!";
 
     // Interaction-only actions (excludes Examine). Used to distinguish
     // "examine-only" NPCs from NPCs with real interaction options (Talk-to, Bank, etc.).
@@ -85,6 +76,10 @@ public class WoWStyleNametagsPlugin extends Plugin
         MenuAction.PLAYER_FOURTH_OPTION.getId(),
         MenuAction.PLAYER_FIFTH_OPTION.getId()
     );
+
+    private static final String ATTACK_KEYWORD = "attack";
+    private static final String TALK_KEYWORD = "talk";
+    private static final String FISHING_SPOT_KEYWORD = "fishing spot";
 
     // --- Hover state (written by onMenuEntryAdded / onGameTick, read by overlay) ---
     int hoverIndex = -1;
@@ -116,6 +111,12 @@ public class WoWStyleNametagsPlugin extends Plugin
     boolean talkableOutlineEnabled;
     Color talkableOutlineColour;
     int talkableOutlineThickness;
+
+    boolean enableNonTalkInteraction;
+    Color nonTalkInteractionColour;
+    boolean nonTalkInteractionOutlineEnabled;
+    Color nonTalkInteractionOutlineColour;
+    int nonTalkInteractionOutlineThickness;
 
     boolean enableAttackableTalkable;
     Color attackableTalkableColour;
@@ -191,12 +192,16 @@ public class WoWStyleNametagsPlugin extends Plugin
      * applies to every instance of that NPC type and survives despawn/respawn.
      */
     private final Set<Integer> persistentTalkable = ConcurrentHashMap.newKeySet();
+    private final Set<Integer> persistentTalkTo = ConcurrentHashMap.newKeySet();
     /**
      * NPC <em>composition IDs</em> ({@link NPC#getId()}) confirmed as having no Talk-to
      * option (e.g. examine-only NPCs such as Ducklings). Same lifetime guarantees as
      * {@link #persistentTalkable}.
      */
     private final Set<Integer> persistentNotTalkable = ConcurrentHashMap.newKeySet();
+    private final Set<Integer> persistentAttackable = ConcurrentHashMap.newKeySet();
+    private final Set<Integer> persistentNotAttackable = ConcurrentHashMap.newKeySet();
+    private final Set<Integer> persistentObservedAggressive = ConcurrentHashMap.newKeySet();
     final Set<WorldPoint> stackedTiles = ConcurrentHashMap.newKeySet();
     final Set<WorldPoint> visiblePlayerTiles = ConcurrentHashMap.newKeySet();
 
@@ -282,6 +287,7 @@ public class WoWStyleNametagsPlugin extends Plugin
         enablePassive = config.enablePassive();
         enableAttackableTalkable = config.enableAttackableTalkable();
         enableTalkable = config.enableTalkable();
+        enableNonTalkInteraction = config.enableNonTalkInteraction();
 
         // Player and follower toggles
         enableSelfPlayer = config.enableSelfPlayer();
@@ -306,6 +312,7 @@ public class WoWStyleNametagsPlugin extends Plugin
         passiveColour = config.passiveColour();
         attackableTalkableColour = config.attackableTalkableColour();
         talkableColour = config.talkableColour();
+        nonTalkInteractionColour = config.nonTalkInteractionColour();
         selfPlayerColour = config.selfPlayerColour();
         otherPlayersColour = config.otherPlayersColour();
         friendPlayersColour = config.friendPlayersColour();
@@ -332,6 +339,10 @@ public class WoWStyleNametagsPlugin extends Plugin
         talkableOutlineEnabled = config.talkableOutlineEnabled();
         talkableOutlineColour = config.talkableOutlineColour();
         talkableOutlineThickness = config.talkableOutlineThickness();
+
+        nonTalkInteractionOutlineEnabled = config.nonTalkInteractionOutlineEnabled();
+        nonTalkInteractionOutlineColour = config.nonTalkInteractionOutlineColour();
+        nonTalkInteractionOutlineThickness = config.nonTalkInteractionOutlineThickness();
 
         otherPlayersOutlineEnabled = config.otherPlayersOutlineEnabled();
         otherPlayersOutlineColour = config.otherPlayersOutlineColour();
@@ -392,6 +403,39 @@ public class WoWStyleNametagsPlugin extends Plugin
         visiblePlayerTiles.clear();
     }
 
+    private void syncTrackedNpcsFromScene()
+    {
+        if (client == null)
+        {
+            return;
+        }
+
+        try
+        {
+            var wv = client.getTopLevelWorldView();
+            if (wv == null)
+            {
+                return;
+            }
+
+            Set<Integer> liveIndexes = new HashSet<>();
+            for (NPC npc : wv.npcs())
+            {
+                if (npc == null)
+                {
+                    continue;
+                }
+
+                int index = npc.getIndex();
+                liveIndexes.add(index);
+                trackedNpcs.put(index, npc);
+            }
+
+            trackedNpcs.keySet().removeIf(index -> !liveIndexes.contains(index));
+        }
+        catch (Exception ignored) {}
+    }
+
     private boolean shouldShowUpdateNotice()
     {
         String seenVersion = configManager.getConfiguration(WoWStyleNametagsConfig.GROUP, UPDATE_NOTICE_VERSION_KEY);
@@ -430,6 +474,85 @@ public class WoWStyleNametagsPlugin extends Plugin
     public boolean isPlayerNameExcluded(String playerName)
     {
         return excludedPlayerNames != null && excludedPlayerNames.contains(normalizeName(playerName));
+    }
+
+    public void rememberAggressiveNpcType(NPC npc)
+    {
+        if (npc == null)
+        {
+            return;
+        }
+
+        persistentObservedAggressive.add(npc.getId());
+    }
+
+    public boolean wasNpcTypeObservedAggressive(NPC npc)
+    {
+        return npc != null && persistentObservedAggressive.contains(npc.getId());
+    }
+
+    public boolean isSuppressedResourceNpc(NPC npc, String sanitizedName)
+    {
+        if (npc == null)
+        {
+            return false;
+        }
+
+        String normalizedName = normalizeName(sanitizedName);
+        if (normalizedName.contains(FISHING_SPOT_KEYWORD))
+        {
+            return true;
+        }
+
+        // Some skilling nodes are implemented as NPCs. Suppress obvious fishing nodes
+        // by action profile even if the name is atypical.
+        String[] actions = null;
+        net.runelite.api.NPCComposition transformed = npc.getTransformedComposition();
+        if (transformed != null)
+        {
+            actions = transformed.getActions();
+        }
+        else
+        {
+            net.runelite.api.NPCComposition base = npc.getComposition();
+            if (base != null)
+            {
+                actions = base.getActions();
+            }
+        }
+
+        if (actions == null)
+        {
+            return false;
+        }
+
+        boolean hasFishingAction = false;
+        for (String action : actions)
+        {
+            if (action == null)
+            {
+                continue;
+            }
+
+            String a = action.trim().toLowerCase(Locale.ROOT);
+            if (a.isEmpty())
+            {
+                continue;
+            }
+
+            if (a.contains(ATTACK_KEYWORD) || a.contains(TALK_KEYWORD))
+            {
+                return false;
+            }
+
+            if (a.contains("net") || a.contains("bait") || a.contains("lure")
+                    || a.contains("harpoon") || a.contains("cage") || a.contains("rod"))
+            {
+                hasFishingAction = true;
+            }
+        }
+
+        return hasFishingAction;
     }
 
     public boolean shouldRenderNametagForActor(Actor actor)
@@ -542,27 +665,71 @@ public class WoWStyleNametagsPlugin extends Plugin
 
     public boolean hasAttackOption(NPC npc)
     {
-        if (npc == null || npc.getComposition() == null)
+        if (npc == null)
         {
             return false;
         }
 
-        String[] actions = npc.getComposition().getActions();
-        if (actions == null)
+        int compId = npc.getId();
+
+        if (persistentAttackable.contains(compId))
+        {
+            return true;
+        }
+
+        if (persistentNotAttackable.contains(compId))
         {
             return false;
         }
 
-        for (String a : actions)
+        try
         {
-            if (a == null)
+            MenuEntry[] entries = client.getMenu().getMenuEntries();
+            if (entries != null)
             {
-                continue;
+                boolean hasInteraction = false;
+                for (MenuEntry e : entries)
+                {
+                    if (e.getIdentifier() != npc.getIndex()) continue;
+                    if (!NPC_INTERACTION_ACTIONS.contains(e.getType().getId())) continue;
+
+                    hasInteraction = true;
+                    if (isAttackInteractionOption(e.getOption()))
+                    {
+                        persistentAttackable.add(compId);
+                        persistentNotAttackable.remove(compId);
+                        return true;
+                    }
+                }
+
+                if (hasInteraction)
+                {
+                    persistentNotAttackable.add(compId);
+                    persistentAttackable.remove(compId);
+                    return false;
+                }
             }
-            String s = a.toLowerCase(Locale.ROOT);
-            if (s.contains("attack"))
+        }
+        catch (Exception ignored) {}
+
+        net.runelite.api.NPCComposition transformed = npc.getTransformedComposition();
+        if (transformed != null)
+        {
+            Boolean transformedAttackable = classifyAttackFromActions(transformed.getActions());
+            if (transformedAttackable != null)
             {
-                return true;
+                cacheAttackability(compId, transformedAttackable);
+                return transformedAttackable;
+            }
+        }
+
+        if (npc.getComposition() != null)
+        {
+            Boolean baseAttackable = classifyAttackFromActions(npc.getComposition().getActions());
+            if (baseAttackable != null)
+            {
+                cacheAttackability(compId, baseAttackable);
+                return baseAttackable;
             }
         }
 
@@ -574,6 +741,11 @@ public class WoWStyleNametagsPlugin extends Plugin
         if (npc == null || npc.getComposition() == null)
         {
             return false;
+        }
+
+        if (persistentTalkTo.contains(npc.getId()))
+        {
+            return true;
         }
 
         String[] actions = npc.getComposition().getActions();
@@ -595,12 +767,13 @@ public class WoWStyleNametagsPlugin extends Plugin
             {
                 for (String a : actions)
                 {
-                    if (a != null && a.toLowerCase(Locale.ROOT).contains("talk"))
+                    if (isTalkInteractionOption(a))
                     {
+                        persistentTalkTo.add(npc.getId());
                         return true;
                     }
                 }
-                // Has real actions but none are talk - not talkable.
+                // Has real actions but no Talk-to entry.
                 return false;
             }
         }
@@ -627,14 +800,13 @@ public class WoWStyleNametagsPlugin extends Plugin
                 {
                     for (String a : tActions)
                     {
-                        if (a != null && a.toLowerCase(Locale.ROOT).contains("talk"))
+                        if (isTalkInteractionOption(a))
                         {
-                            persistentTalkable.add(npc.getId());
+                            persistentTalkTo.add(npc.getId());
                             return true;
                         }
                     }
-                    // Transformed composition has real actions but no talk.
-                    persistentNotTalkable.add(npc.getId());
+                    // Transformed composition has real actions but no Talk-to entry.
                     return false;
                 }
             }
@@ -643,65 +815,84 @@ public class WoWStyleNametagsPlugin extends Plugin
         // Both regular and transformed compositions are null/all-null (e.g. Ducklings).
         // We have no composition data to determine talk status. Check caches and live menu:
 
-        // 1. Persistent positive cache: a talk option was seen for this NPC type.
-        //    Uses composition ID so all instances of the same NPC type benefit.
-        if (persistentTalkable.contains(npc.getId()))
-        {
-            return true;
-        }
-
-        // 2. Persistent negative cache: this NPC type was confirmed as having no
-        //    talk option (e.g. examine-only, such as Ducklings).
-        if (persistentNotTalkable.contains(npc.getId()))
-        {
-            return false;
-        }
-
-        // 3. Live menu entries - only present while the player is hovering this NPC.
-        //    We use the interaction-only action set (FIRST-FIFTH) to distinguish between:
-        //      a) Has interaction entries with talk -> talkable
-        //      b) Has interaction entries but no talk -> not talkable (e.g. pure-attack NPC)
-        //      c) Has only Examine entry (no interaction entries at all) -> examine-only, not talkable
-        //      d) No entries at all -> player is not hovering this NPC, fall through to heuristic
+        // Live menu entries are only present while hovering this NPC.
         try
         {
             MenuEntry[] entries = client.getMenu().getMenuEntries();
             if (entries != null)
             {
-                boolean hasInteraction = false;
-                boolean hasExamine = false;
                 for (MenuEntry e : entries)
                 {
                     if (e.getIdentifier() != npc.getIndex()) continue;
                     int typeId = e.getType().getId();
                     if (NPC_INTERACTION_ACTIONS.contains(typeId))
                     {
-                        hasInteraction = true;
                         String opt = e.getOption();
-                        if (opt != null && opt.toLowerCase(Locale.ROOT).contains("talk"))
+                        if (isTalkInteractionOption(opt))
                         {
-                            persistentTalkable.add(npc.getId());  // composition ID
+                            persistentTalkTo.add(npc.getId());
                             return true;
                         }
                     }
-                    else if (typeId == MenuAction.EXAMINE_NPC.getId())
-                    {
-                        hasExamine = true;
-                    }
-                }
-                // Interaction entries seen but no talk, or only Examine - both definitively not talkable.
-                if (hasInteraction || hasExamine)
-                {
-                    persistentNotTalkable.add(npc.getId());  // composition ID
-                    return false;
                 }
             }
         }
         catch (Exception ignored) {}
 
-        // 4. No composition data and no live menu evidence. The NPC genuinely has
-        //    no determinable talk option — return false. The persistent caches will
-        //    correct this the first time the player hovers the NPC.
+        return false;
+    }
+
+    public boolean hasNonTalkInteractionOption(NPC npc)
+    {
+        if (npc == null || hasTalkOption(npc))
+        {
+            return false;
+        }
+
+        if (persistentTalkable.contains(npc.getId()) && !persistentTalkTo.contains(npc.getId()))
+        {
+            return true;
+        }
+
+        net.runelite.api.NPCComposition composition = npc.getComposition();
+        if (composition != null)
+        {
+            if (hasNonTalkInteraction(composition.getActions()))
+            {
+                persistentTalkable.add(npc.getId());
+                return true;
+            }
+        }
+
+        net.runelite.api.NPCComposition transformed = npc.getTransformedComposition();
+        if (transformed != null)
+        {
+            if (hasNonTalkInteraction(transformed.getActions()))
+            {
+                persistentTalkable.add(npc.getId());
+                return true;
+            }
+        }
+
+        try
+        {
+            MenuEntry[] entries = client.getMenu().getMenuEntries();
+            if (entries != null)
+            {
+                for (MenuEntry e : entries)
+                {
+                    if (e.getIdentifier() != npc.getIndex()) continue;
+                    int typeId = e.getType().getId();
+                    if (NPC_INTERACTION_ACTIONS.contains(typeId) && isNonTalkInteractionOption(e.getOption()))
+                    {
+                        persistentTalkable.add(npc.getId());
+                        return true;
+                    }
+                }
+            }
+        }
+        catch (Exception ignored) {}
+
         return false;
     }
 
@@ -803,16 +994,31 @@ public class WoWStyleNametagsPlugin extends Plugin
                 hoverTarget = sanitizeTarget(event.getTarget());
             }
 
-            // Cache talk options for NPCs as the menu is built so we can classify
+            // Cache interaction options for NPCs as the menu is built so we can classify
             // them even before the player explicitly right-clicks.
             String op = event.getOption();
-            // Cache talk options using composition ID so all instances of the same
-            if (op != null && op.toLowerCase(Locale.ROOT).contains("talk") && NPC_MENU_ACTIONS.contains(typeId))
+            // Cache using composition ID so all instances of the same NPC type benefit.
+            if (NPC_INTERACTION_ACTIONS.contains(typeId))
             {
                 NPC trackedNpc = trackedNpcs.get(event.getIdentifier());
                 if (trackedNpc != null)
                 {
-                    persistentTalkable.add(trackedNpc.getId());
+                    int compId = trackedNpc.getId();
+                    if (isAttackInteractionOption(op))
+                    {
+                        cacheAttackability(compId, true);
+                        persistentNotTalkable.add(compId);
+                    }
+                    else if (isFriendlyInteractionOption(op))
+                    {
+                        persistentTalkable.add(compId);
+                        if (isTalkInteractionOption(op))
+                        {
+                            persistentTalkTo.add(compId);
+                        }
+                        persistentNotTalkable.remove(compId);
+                        cacheAttackability(compId, false);
+                    }
                 }
             }
         }
@@ -844,7 +1050,9 @@ public class WoWStyleNametagsPlugin extends Plugin
     @Subscribe
     public void onGameTick(GameTick event)
     {
-        // Scan menu entries once per tick: cache talk/examine-only results and update hover state.
+        syncTrackedNpcsFromScene();
+
+        // Scan menu entries once per tick: cache NPC classification and update hover state.
         try
         {
             MenuEntry[] entries = client.getMenu().getMenuEntries();
@@ -853,7 +1061,8 @@ public class WoWStyleNametagsPlugin extends Plugin
             {
                 // Per-NPC: track whether any interaction (FIRST–FIFTH) or examine entry was seen.
                 java.util.Set<Integer> withInteraction = new java.util.HashSet<>();
-                java.util.Set<Integer> withTalk       = new java.util.HashSet<>();
+                java.util.Set<Integer> withFriendly   = new java.util.HashSet<>();
+                java.util.Set<Integer> withAttack     = new java.util.HashSet<>();
                 java.util.Set<Integer> examineOnly    = new java.util.HashSet<>();
 
                 for (MenuEntry e : entries)
@@ -881,10 +1090,21 @@ public class WoWStyleNametagsPlugin extends Plugin
                         {
                             withInteraction.add(compId);
                             String opt = e.getOption();
-                            if (opt != null && opt.toLowerCase(Locale.ROOT).contains("talk"))
+                            if (isAttackInteractionOption(opt))
                             {
-                                withTalk.add(compId);
+                                withAttack.add(compId);
+                                cacheAttackability(compId, true);
+                            }
+                            if (isFriendlyInteractionOption(opt))
+                            {
+                                withFriendly.add(compId);
                                 persistentTalkable.add(compId);
+                                if (isTalkInteractionOption(opt))
+                                {
+                                    persistentTalkTo.add(compId);
+                                }
+                                persistentNotTalkable.remove(compId);
+                                cacheAttackability(compId, false);
                             }
                         }
                         else // EXAMINE_NPC
@@ -894,20 +1114,33 @@ public class WoWStyleNametagsPlugin extends Plugin
                     }
                 }
 
-                // NPC types with interaction entries but no talk — definitively not talkable.
+                // NPC types with interaction entries but no friendly action are not friendly.
                 for (int compId : withInteraction)
                 {
-                    if (!withTalk.contains(compId))
+                    if (!withFriendly.contains(compId))
                     {
                         persistentNotTalkable.add(compId);
                     }
+
+                    if (!withAttack.contains(compId))
+                    {
+                        cacheAttackability(compId, false);
+                    }
                 }
-                // NPC types that appeared only via Examine — examine-only.
+
+                for (int compId : withAttack)
+                {
+                    cacheAttackability(compId, true);
+                }
+
+                // NPC types that appeared only via Examine are hidden by default.
                 for (int compId : examineOnly)
                 {
                     if (!withInteraction.contains(compId))
                     {
                         persistentNotTalkable.add(compId);
+                        persistentTalkable.remove(compId);
+                        cacheAttackability(compId, false);
                     }
                 }
             }
@@ -942,10 +1175,20 @@ public class WoWStyleNametagsPlugin extends Plugin
                     {
                         hasInteraction = true;
                         String opt = e.getOption();
-                        if (opt != null && opt.toLowerCase(Locale.ROOT).contains("talk"))
+                        if (isFriendlyInteractionOption(opt))
                         {
                             persistentTalkable.add(npc.getId());  // composition ID
+                            if (isTalkInteractionOption(opt))
+                            {
+                                persistentTalkTo.add(npc.getId());
+                            }
+                            persistentNotTalkable.remove(npc.getId());
+                            cacheAttackability(npc.getId(), false);
                             return;
+                        }
+                        if (isAttackInteractionOption(opt))
+                        {
+                            cacheAttackability(npc.getId(), true);
                         }
                     }
                     else if (typeId == MenuAction.EXAMINE_NPC.getId())
@@ -953,12 +1196,127 @@ public class WoWStyleNametagsPlugin extends Plugin
                         hasExamine = true;
                     }
                 }
-                if (hasInteraction || hasExamine)
+                if (hasInteraction)
                 {
                     persistentNotTalkable.add(npc.getId());  // composition ID
+                }
+                else if (hasExamine)
+                {
+                    persistentNotTalkable.add(npc.getId());
+                    persistentTalkable.remove(npc.getId());
+                    cacheAttackability(npc.getId(), false);
                 }
             }
         }
         catch (Exception ignored) {}
+    }
+
+    private void cacheAttackability(int compId, boolean attackable)
+    {
+        if (attackable)
+        {
+            persistentAttackable.add(compId);
+            persistentNotAttackable.remove(compId);
+            return;
+        }
+
+        persistentNotAttackable.add(compId);
+        persistentAttackable.remove(compId);
+    }
+
+    private Boolean classifyAttackFromActions(String[] actions)
+    {
+        if (actions == null)
+        {
+            return null;
+        }
+
+        boolean sawAction = false;
+        for (String action : actions)
+        {
+            if (action == null)
+            {
+                continue;
+            }
+
+            sawAction = true;
+            if (isAttackInteractionOption(action))
+            {
+                return true;
+            }
+        }
+
+        return sawAction ? Boolean.FALSE : null;
+    }
+
+    private boolean isAttackInteractionOption(String option)
+    {
+        if (option == null)
+        {
+            return false;
+        }
+
+        String normalized = option.trim().toLowerCase(Locale.ROOT);
+        return !normalized.isEmpty() && normalized.contains(ATTACK_KEYWORD);
+    }
+
+    private boolean isTalkInteractionOption(String option)
+    {
+        if (option == null)
+        {
+            return false;
+        }
+
+        String normalized = option.trim().toLowerCase(Locale.ROOT);
+        return !normalized.isEmpty() && normalized.contains(TALK_KEYWORD);
+    }
+
+    private boolean hasNonTalkInteraction(String[] actions)
+    {
+        if (actions == null)
+        {
+            return false;
+        }
+
+        for (String action : actions)
+        {
+            if (isNonTalkInteractionOption(action))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean isNonTalkInteractionOption(String option)
+    {
+        if (option == null)
+        {
+            return false;
+        }
+
+        String normalized = option.trim().toLowerCase(Locale.ROOT);
+        return !normalized.isEmpty()
+                && !normalized.contains(ATTACK_KEYWORD)
+                && !normalized.contains(TALK_KEYWORD);
+    }
+
+    private boolean isFriendlyInteractionOption(String option)
+    {
+        if (option == null)
+        {
+            return false;
+        }
+
+        String normalized = option.trim().toLowerCase(Locale.ROOT);
+        if (normalized.isEmpty())
+        {
+            return false;
+        }
+
+        // Treat any non-attack interaction as "friendly" so NPCs like pickpocket/catch
+        // are shown under the friendly category rather than being permanently culled.
+        return !normalized.contains(ATTACK_KEYWORD);
     }
 }

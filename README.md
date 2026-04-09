@@ -1,6 +1,6 @@
 # WoW-Style Nametags
 
-Displays floating nametags above NPCs and players in a style inspired by World of Warcraft. Each entity type can be made visible or hidden and is colour-coded to make it immediately clear whether an NPC is aggressive, passive, friendly, or neutral, never right click EVER again (slight exaggeration).
+Displays floating nametags above NPCs and players in a style inspired by World of Warcraft. Each entity type can be made visible or hidden and is configurably colour-coded to make it immediately clear whether an NPC is aggressive, passive, neutral, or friendly - never right-click EVER again (slight exaggeration).
 
 ![Ooo look at all the nametags](screenshots/2026-03-17_18-08-19.png)
 
@@ -11,10 +11,15 @@ NPCs are automatically classified and coloured by their type:
 
 | Category | Default colour | Description |
 |---|---|---|
-| Aggressive | Red | NPCs that can only be attacked and are aggressive towards the player |
-| Passive | Orange | Attackable NPCs whose combat level is below yours |
+| Aggressive | Red | Attackable NPCs that are currently targeting you, learned always-aggressive NPC types, or high-threat attack-only NPCs |
+| Passive | Orange | Attack-only NPCs at or below the non-aggro threshold (combat level at most 2x yours) |
+| Neutral | Yellow | NPCs that are both attackable and have a non-attack interaction (Talk-to or other interactions) |
 | Friendly | Green | NPCs with a Talk-to option (e.g. shopkeepers, quest NPCs) |
-| Neutral | Yellow | NPCs that are both attackable and have talk-to options; (e.g. 'Man', 'Woman' entities in Lumbridge) |
+| Friendly non-talkers | Pink | NPCs with non-attack interactions that are not Talk-to (e.g. Catch, Shear, Pet) |
+
+Notes:
+- Examine-only NPCs are hidden by default to avoid false positives (for example, trees/resource-like entities).
+- Some always-aggressive NPC types are learned per session after first observed aggro due to RuneLite API limitations.
 
 ![Angry Chicken](screenshots/2026-03-17_18-13-13.png)
 
@@ -73,4 +78,4 @@ Every category has its own independently configurable:
 
 ---
 
-<sub>Current version: 1.2.1</sub>
+<sub>Current version: 1.3</sub>

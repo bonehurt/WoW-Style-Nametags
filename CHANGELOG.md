@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.3] - 2026-04-09
+
+### Added
+- Added a dedicated `Friendly non-talkers` NPC category (e.g. Catch/Shear/Pet interactions like sheep, Master Farmers, and geese) with independent toggle, label colour, and full outline controls like other categories. These were previously lumped in with Passive NPCs or undetected, but now have their own distinct pink styling to differentiate them from Talk-to NPCs.
+- Added session learning for always-aggressive NPC types: once a type is observed actively targeting you, it is treated as Aggressive pre-aggro for the rest of the session.
+
+### Fixed
+- Fixed non-aggressive attackable NPCs incorrectly showing as red by applying the OSRS 2× combat threshold to attack-only classification.
+- Improved live NPC tracking so nametags recover more reliably after distance changes or missed spawn/despawn updates, including follower edge cases.
+- Various nametag filtering and categorisation optimisations and improvements to code.
+- Attack/friendly classification now prefers live menu and transformed composition data over base composition, preventing stale or hidden action arrays from producing wrong colours.
+
+### Known Limitations
+- Pre-aggro aggression cannot be predetermined from RuneLite API data alone for every NPC type; always-aggressive behavior is learned per session after the NPC type is first observed actively targeting the player.
+- Due to the above & now using the correct 2x combat level threshold, some ALWAYS aggressive NPCs that were previously incorrectly classified as aggressive may now show as passive until you engage them and they are learned as aggressive for the session.
+
 ## [1.2.1] - 2026-04-05
 
 ### Added

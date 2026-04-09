@@ -60,7 +60,7 @@ public interface WoWStyleNametagsConfig extends Config
         position = 6,
         keyName = "enablePassive",
         name = "Enable for Passive NPCs",
-        description = "Show nametags for NPCs that are passive towards the player (lower level than player and/or won't attack unless provoked, or same level)"
+        description = "Show nametags for attackable NPCs whose combat level is at most twice yours (unlikely to aggro you)"
     )
     default boolean enablePassive()
     {
@@ -69,22 +69,22 @@ public interface WoWStyleNametagsConfig extends Config
 
     @ConfigItem(
         position = 8,
-        keyName = "enableTalkable",
-        name = "Enable for Friendly NPCs",
-        description = "Show nametags for NPCs that are friendly / can be talked to"
+        keyName = "enableAttackableTalkable",
+        name = "Enable for Neutral NPCs",
+        description = "Show nametags for NPCs that are 'neutral' (both attackable and have a non-attack interaction option)"
     )
-    default boolean enableTalkable()
+    default boolean enableAttackableTalkable()
     {
         return true;
     }
 
     @ConfigItem(
-        position = 7,
-        keyName = "enableAttackableTalkable",
-        name = "Enable for Neutral NPCs",
-        description = "Show nametags for NPCs that are 'neutral' (both attackable and can be talked to)"
+        position = 9,
+        keyName = "enableTalkable",
+        name = "Enable for Friendly NPCs",
+        description = "Show nametags for NPCs that are friendly / can be talked to"
     )
-    default boolean enableAttackableTalkable()
+    default boolean enableTalkable()
     {
         return true;
     }
@@ -113,6 +113,17 @@ public interface WoWStyleNametagsConfig extends Config
 
     @ConfigItem(
         position = 10,
+        keyName = "enableNonTalkInteraction",
+        name = "Enable for Friendly non-talkers",
+        description = "Show nametags for NPCs with non-attack interactions that are not Talk-to (e.g. Catch, Shear, Pet)"
+    )
+    default boolean enableNonTalkInteraction()
+    {
+        return true;
+    }
+
+    @ConfigItem(
+        position = 11,
         keyName = "enableOtherPlayers",
         name = "Enable for other players",
         description = "Show nametags for other players"
@@ -123,7 +134,7 @@ public interface WoWStyleNametagsConfig extends Config
     }
 
     @ConfigItem(
-        position = 9,
+        position = 12,
         keyName = "enableSelfPlayer",
         name = "Enable for your character",
         description = "Show your own nametag"
@@ -151,7 +162,7 @@ public interface WoWStyleNametagsConfig extends Config
         position = 15,
         keyName = "passiveColour",
         name = "Passive NPC colour",
-        description = "Colour used for passive NPCs"
+        description = "Colour used for attackable NPCs within the non-aggression threshold (combat level at most 2x yours)"
     )
     default Color passiveColour()
     {
@@ -185,6 +196,18 @@ public interface WoWStyleNametagsConfig extends Config
     @Alpha
     @ConfigItem(
         position = 18,
+        keyName = "nonTalkInteractionColour",
+        name = "Friendly non-talkers colour",
+        description = "Colour used for NPCs with non-attack interactions that are not Talk-to (e.g. Catch, Shear, Pet)"
+    )
+    default Color nonTalkInteractionColour()
+    {
+        return new Color(0xFFFF66FF, true);
+    }
+
+    @Alpha
+    @ConfigItem(
+        position = 19,
         keyName = "selfPlayerColour",
         name = "Your nametag colour",
         description = "Colour used for your nametag"
@@ -196,7 +219,7 @@ public interface WoWStyleNametagsConfig extends Config
 
     @Alpha
     @ConfigItem(
-        position = 19,
+        position = 20,
         keyName = "otherPlayersColour",
         name = "Other players colour",
         description = "Colour used for other players"
@@ -208,7 +231,7 @@ public interface WoWStyleNametagsConfig extends Config
 
     @Alpha
     @ConfigItem(
-        position = 20,
+        position = 21,
         keyName = "myFollowerColour",
         name = "Your followers colour",
         description = "Colour used for follower NPCs owned by you"
@@ -220,7 +243,7 @@ public interface WoWStyleNametagsConfig extends Config
 
     @Alpha
     @ConfigItem(
-        position = 21,
+        position = 22,
         keyName = "otherPlayersFollowerColour",
         name = "Other players' followers colour",
         description = "Colour used for follower NPCs owned by other players"
@@ -343,7 +366,7 @@ public interface WoWStyleNametagsConfig extends Config
     }
 
     @ConfigItem(
-        position = 47,
+        position = 50,
         keyName = "talkableOutlineEnabled",
         name = "Enable outline for friendly NPCs",
         description = "Show outline for friendly NPCs",
@@ -356,7 +379,7 @@ public interface WoWStyleNametagsConfig extends Config
 
     @Alpha
     @ConfigItem(
-        position = 48,
+        position = 51,
         keyName = "talkableOutlineColour",
         name = "Friendly NPC outline colour",
         description = "Outline colour for friendly NPCs",
@@ -368,7 +391,7 @@ public interface WoWStyleNametagsConfig extends Config
     }
 
     @ConfigItem(
-        position = 49,
+        position = 52,
         keyName = "talkableOutlineThickness",
         name = "Friendly NPC outline thickness",
         description = "Thickness for friendly NPC outline",
@@ -381,7 +404,7 @@ public interface WoWStyleNametagsConfig extends Config
     }
 
     @ConfigItem(
-        position = 50,
+        position = 47,
         keyName = "attackableTalkableOutlineEnabled",
         name = "Enable outline for neutral NPCs",
         description = "Show outline for neutral NPCs",
@@ -394,7 +417,7 @@ public interface WoWStyleNametagsConfig extends Config
 
     @Alpha
     @ConfigItem(
-        position = 51,
+        position = 48,
         keyName = "attackableTalkableOutlineColour",
         name = "Neutral NPC outline colour",
         description = "Outline colour for neutral NPCs",
@@ -406,7 +429,7 @@ public interface WoWStyleNametagsConfig extends Config
     }
 
     @ConfigItem(
-        position = 52,
+        position = 49,
         keyName = "attackableTalkableOutlineThickness",
         name = "Neutral NPC outline thickness",
         description = "Thickness for neutral NPC outline",
@@ -414,6 +437,44 @@ public interface WoWStyleNametagsConfig extends Config
     )
     @Range(min = 1, max = 10)
     default int attackableTalkableOutlineThickness()
+    {
+        return 2;
+    }
+
+    @ConfigItem(
+        position = 53,
+        keyName = "nonTalkInteractionOutlineEnabled",
+        name = "Enable outline for Friendly non-talkers",
+        description = "Show outline for Friendly non-talkers",
+        section = "npcOutlineSection"
+    )
+    default boolean nonTalkInteractionOutlineEnabled()
+    {
+        return true;
+    }
+
+    @Alpha
+    @ConfigItem(
+        position = 86,
+        keyName = "nonTalkInteractionOutlineColour",
+        name = "Friendly non-talkers outline colour",
+        description = "Outline colour for Friendly non-talkers",
+        section = "npcOutlineSection"
+    )
+    default Color nonTalkInteractionOutlineColour()
+    {
+        return null;
+    }
+
+    @ConfigItem(
+        position = 87,
+        keyName = "nonTalkInteractionOutlineThickness",
+        name = "Friendly non-talkers outline thickness",
+        description = "Thickness for Friendly non-talkers outline",
+        section = "npcOutlineSection"
+    )
+    @Range(min = 1, max = 10)
+    default int nonTalkInteractionOutlineThickness()
     {
         return 2;
     }
@@ -892,7 +953,7 @@ public interface WoWStyleNametagsConfig extends Config
     @ConfigSection(
         name = "Culling & Positioning",
         description = "Control nametag placement, overlap behaviour, and compatibility with entity-hiding plugins",
-        position = 22
+        position = 23
     )
     String cullingSection = "cullingSection";
 

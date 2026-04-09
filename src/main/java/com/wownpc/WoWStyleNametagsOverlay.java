@@ -280,6 +280,11 @@ public class WoWStyleNametagsOverlay extends Overlay
             return null;
         }
 
+        if (plugin.isSuppressedResourceNpc(npc, text))
+        {
+            return null;
+        }
+
         // Hover-only gate: show if the cursor is over this NPC (by index or name match).
         if (plugin.hoverOnly
                 && plugin.hoverIndex != npc.getIndex()
@@ -321,16 +326,40 @@ public class WoWStyleNametagsOverlay extends Overlay
         {
             boolean attack = plugin.hasAttackOption(npc);
             boolean talk   = plugin.hasTalkOption(npc);
+            boolean nonTalkInteraction = plugin.hasNonTalkInteractionOption(npc);
 
-            // Passive: attackable-only NPCs whose combat level is lower than the player's.
+            // Actively targeting the player — definitively aggressive regardless of level.
+            // This catches always-aggressive NPCs (e.g. Lizardmen) that would otherwise
+            // fall below the 2x threshold and show as passive.
+            boolean targetingPlayer = false;
+            try
+            {
+                targetingPlayer = npc.getInteracting() != null
+                        && npc.getInteracting().equals(localPlayer);
+                if (targetingPlayer)
+                {
+                    plugin.rememberAggressiveNpcType(npc);
+                }
+            }
+            catch (Exception ignored) {}
+
+            boolean observedAggressiveType = plugin.wasNpcTypeObservedAggressive(npc);
+
+            // Passive: attack-only NPCs that are NOT currently targeting the player AND whose
+            // level does not exceed twice the player's combat level.  This mirrors the OSRS
+            // aggression rule (NPCs stop attacking once the player's level is over double
+            // theirs), so only truly out-of-league NPCs show red.
+            // NPCs that are both attackable AND have either Talk-to or another non-attack
+            // interaction (e.g. Man/Woman, catchable/pettable/shearable NPCs) are Neutral
+            // regardless of level.
             boolean passive = false;
             try
             {
-                if (attack && !talk)
+                if (attack && !talk && !nonTalkInteraction && !targetingPlayer && !observedAggressiveType)
                 {
                     int npcLevel    = npc.getCombatLevel();
                     int playerLevel = localPlayer.getCombatLevel();
-                    if (npcLevel > 0 && playerLevel > 0 && npcLevel < playerLevel)
+                    if (npcLevel > 0 && playerLevel > 0 && npcLevel <= playerLevel * 2)
                     {
                         passive = true;
                     }
@@ -338,15 +367,15 @@ public class WoWStyleNametagsOverlay extends Overlay
             }
             catch (Exception ignored) {}
 
-            if (attack && talk)
+            if (attack && (talk || nonTalkInteraction))
             {
-                if (passive)
+                if (observedAggressiveType)
                 {
-                    if (!plugin.enablePassive) return null;
-                    colour           = plugin.passiveColour;
-                    outlineEnabled   = plugin.passiveOutlineEnabled;
-                    outlineColour    = plugin.passiveOutlineColour;
-                    outlineThickness = plugin.passiveOutlineThickness;
+                    if (!plugin.enableAttackable) return null;
+                    colour           = plugin.attackableColour;
+                    outlineEnabled   = plugin.attackableOutlineEnabled;
+                    outlineColour    = plugin.attackableOutlineColour;
+                    outlineThickness = plugin.attackableOutlineThickness;
                 }
                 else
                 {
@@ -383,6 +412,14 @@ public class WoWStyleNametagsOverlay extends Overlay
                 outlineEnabled   = plugin.talkableOutlineEnabled;
                 outlineColour    = plugin.talkableOutlineColour;
                 outlineThickness = plugin.talkableOutlineThickness;
+            }
+            else if (nonTalkInteraction)
+            {
+                if (!plugin.enableNonTalkInteraction) return null;
+                colour           = plugin.nonTalkInteractionColour;
+                outlineEnabled   = plugin.nonTalkInteractionOutlineEnabled;
+                outlineColour    = plugin.nonTalkInteractionOutlineColour;
+                outlineThickness = plugin.nonTalkInteractionOutlineThickness;
             }
         }
 
