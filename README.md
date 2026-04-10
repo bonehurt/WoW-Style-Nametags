@@ -19,7 +19,7 @@ NPCs are automatically classified and coloured by their type:
 
 Notes:
 - Examine-only NPCs are hidden by default to avoid false positives (for example, trees/resource-like entities).
-- Some always-aggressive NPC types are learned per session after first observed aggro due to RuneLite API limitations.
+- Some always-aggressive NPC types are learned per session after first observed aggro due to RuneLite API limitations. Player-initiated attacks are excluded from this learning.
 
 ![Angry Chicken](screenshots/2026-03-17_18-13-13.png)
 
@@ -78,4 +78,4 @@ Every category has its own independently configurable:
 
 ---
 
-<sub>Current version: 1.3</sub>
+<sub>Current version: 1.3.1</sub>

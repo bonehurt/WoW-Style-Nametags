@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.1] - 2026-04-10
+
+### Fixed
+- Fixed passive NPCs becoming marked aggressive after being player-provoked and respawning.
+- Various minor aggression / detection optimisations.
+
 ## [1.3] - 2026-04-09
 
 ### Added

@@ -23,6 +23,7 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.BeforeRender;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.MenuEntryAdded;
+import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.NpcChanged;
 import net.runelite.api.events.NpcDespawned;
@@ -48,7 +49,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 )
 public class WoWStyleNametagsPlugin extends Plugin
 {
-    private static final String CURRENT_VERSION = "1.3";
+    private static final String CURRENT_VERSION = "1.3.1";
     private static final String UPDATE_NOTICE_VERSION_KEY = "updateNoticeVersion";
     private static final String UPDATE_NOTICE_TEXT = "New NPC nametag, improved NPC detection + Other bug fixes!";
 
@@ -201,7 +202,12 @@ public class WoWStyleNametagsPlugin extends Plugin
     private final Set<Integer> persistentNotTalkable = ConcurrentHashMap.newKeySet();
     private final Set<Integer> persistentAttackable = ConcurrentHashMap.newKeySet();
     private final Set<Integer> persistentNotAttackable = ConcurrentHashMap.newKeySet();
-    private final Set<Integer> persistentObservedAggressive = ConcurrentHashMap.newKeySet();
+    // Tracks NPC instance indices observed targeting the player during their current lifetime.
+    private final Set<Integer> observedAggressiveNpcInstances = ConcurrentHashMap.newKeySet();
+    // Tracks composition IDs observed as genuinely pre-aggro aggressive this session.
+    private final Set<Integer> persistentObservedAggressiveTypes = ConcurrentHashMap.newKeySet();
+    // Tracks NPC instances the player explicitly initiated combat against.
+    private final Set<Integer> playerProvokedNpcInstances = ConcurrentHashMap.newKeySet();
     final Set<WorldPoint> stackedTiles = ConcurrentHashMap.newKeySet();
     final Set<WorldPoint> visiblePlayerTiles = ConcurrentHashMap.newKeySet();
 
@@ -399,6 +405,8 @@ public class WoWStyleNametagsPlugin extends Plugin
         hoverTarget = null;
         visibleActorsThisFrame.clear();
         sawSceneActorThisFrame = false;
+        observedAggressiveNpcInstances.clear();
+        playerProvokedNpcInstances.clear();
         stackedTiles.clear();
         visiblePlayerTiles.clear();
     }
@@ -483,12 +491,52 @@ public class WoWStyleNametagsPlugin extends Plugin
             return;
         }
 
-        persistentObservedAggressive.add(npc.getId());
+        int index = npc.getIndex();
+        if (index >= 0)
+        {
+            observedAggressiveNpcInstances.add(index);
+            if (!playerProvokedNpcInstances.contains(index))
+            {
+                persistentObservedAggressiveTypes.add(npc.getId());
+            }
+        }
     }
 
     public boolean wasNpcTypeObservedAggressive(NPC npc)
     {
-        return npc != null && persistentObservedAggressive.contains(npc.getId());
+        if (npc == null)
+        {
+            return false;
+        }
+
+        return observedAggressiveNpcInstances.contains(npc.getIndex())
+                || persistentObservedAggressiveTypes.contains(npc.getId());
+    }
+
+    public String getNpcDisplayName(NPC npc)
+    {
+        if (npc == null)
+        {
+            return null;
+        }
+
+        String rawName = null;
+        try
+        {
+            net.runelite.api.NPCComposition transformed = npc.getTransformedComposition();
+            if (transformed != null)
+            {
+                rawName = transformed.getName();
+            }
+        }
+        catch (Exception ignored) {}
+
+        if (rawName == null || rawName.trim().isEmpty() || "null".equalsIgnoreCase(rawName.trim()))
+        {
+            rawName = npc.getName();
+        }
+
+        return sanitizeEntityName(rawName);
     }
 
     public boolean isSuppressedResourceNpc(NPC npc, String sanitizedName)
@@ -504,8 +552,6 @@ public class WoWStyleNametagsPlugin extends Plugin
             return true;
         }
 
-        // Some skilling nodes are implemented as NPCs. Suppress obvious fishing nodes
-        // by action profile even if the name is atypical.
         String[] actions = null;
         net.runelite.api.NPCComposition transformed = npc.getTransformedComposition();
         if (transformed != null)
@@ -690,7 +736,7 @@ public class WoWStyleNametagsPlugin extends Plugin
                 boolean hasInteraction = false;
                 for (MenuEntry e : entries)
                 {
-                    if (e.getIdentifier() != npc.getIndex()) continue;
+                    if (!menuEntryTargetsNpc(e, npc)) continue;
                     if (!NPC_INTERACTION_ACTIONS.contains(e.getType().getId())) continue;
 
                     hasInteraction = true;
@@ -823,7 +869,7 @@ public class WoWStyleNametagsPlugin extends Plugin
             {
                 for (MenuEntry e : entries)
                 {
-                    if (e.getIdentifier() != npc.getIndex()) continue;
+                    if (!menuEntryTargetsNpc(e, npc)) continue;
                     int typeId = e.getType().getId();
                     if (NPC_INTERACTION_ACTIONS.contains(typeId))
                     {
@@ -881,7 +927,7 @@ public class WoWStyleNametagsPlugin extends Plugin
             {
                 for (MenuEntry e : entries)
                 {
-                    if (e.getIdentifier() != npc.getIndex()) continue;
+                    if (!menuEntryTargetsNpc(e, npc)) continue;
                     int typeId = e.getType().getId();
                     if (NPC_INTERACTION_ACTIONS.contains(typeId) && isNonTalkInteractionOption(e.getOption()))
                     {
@@ -903,6 +949,8 @@ public class WoWStyleNametagsPlugin extends Plugin
         if (npc != null)
         {
             trackedNpcs.put(npc.getIndex(), npc);
+            observedAggressiveNpcInstances.remove(npc.getIndex());
+            playerProvokedNpcInstances.remove(npc.getIndex());
             // Scan current menu entries for this NPC (catch talk options
             // that might already be present) so we don't rely solely on hover/menu events.
             scanMenuForNpc(npc);
@@ -916,11 +964,43 @@ public class WoWStyleNametagsPlugin extends Plugin
         if (npc != null)
         {
             trackedNpcs.remove(npc.getIndex());
+            observedAggressiveNpcInstances.remove(npc.getIndex());
+            playerProvokedNpcInstances.remove(npc.getIndex());
             // persistentTalkable / persistentNotTalkable are keyed on composition ID
             // (NPC type), not instance index — intentionally not cleared on despawn
             // so the classification applies to all instances of the same NPC type
             // and survives stairs / zone transitions.
         }
+    }
+
+    @Subscribe
+    public void onMenuOptionClicked(MenuOptionClicked event)
+    {
+        if (event == null)
+        {
+            return;
+        }
+
+        try
+        {
+            MenuAction action = event.getMenuAction();
+            if (action == null || !NPC_INTERACTION_ACTIONS.contains(action.getId()))
+            {
+                return;
+            }
+
+            if (!isAttackInteractionOption(event.getMenuOption()))
+            {
+                return;
+            }
+
+            int npcIndex = event.getId();
+            if (npcIndex >= 0)
+            {
+                playerProvokedNpcInstances.add(npcIndex);
+            }
+        }
+        catch (Exception ignored) {}
     }
 
     @Subscribe
@@ -984,6 +1064,7 @@ public class WoWStyleNametagsPlugin extends Plugin
         try
         {
             int typeId = event.getType();
+            String sanitizedTarget = sanitizeTarget(event.getTarget());
 
             // Update hover state immediately (fires every frame).
             // Only set on entity entries; onGameTick clears when
@@ -991,7 +1072,7 @@ public class WoWStyleNametagsPlugin extends Plugin
             if (ENTITY_MENU_ACTIONS.contains(typeId))
             {
                 hoverIndex = event.getIdentifier();
-                hoverTarget = sanitizeTarget(event.getTarget());
+                hoverTarget = sanitizedTarget;
             }
 
             // Cache interaction options for NPCs as the menu is built so we can classify
@@ -1001,6 +1082,22 @@ public class WoWStyleNametagsPlugin extends Plugin
             if (NPC_INTERACTION_ACTIONS.contains(typeId))
             {
                 NPC trackedNpc = trackedNpcs.get(event.getIdentifier());
+                if (trackedNpc == null)
+                {
+                    String targetName = sanitizeTarget(event.getTarget());
+                    if (targetName != null)
+                    {
+                        for (NPC candidate : trackedNpcs.values())
+                        {
+                            String candidateName = getNpcDisplayName(candidate);
+                            if (candidateName != null && candidateName.equalsIgnoreCase(targetName))
+                            {
+                                trackedNpc = candidate;
+                                break;
+                            }
+                        }
+                    }
+                }
                 if (trackedNpc != null)
                 {
                     int compId = trackedNpc.getId();
@@ -1047,6 +1144,54 @@ public class WoWStyleNametagsPlugin extends Plugin
         }
     }
 
+    private boolean menuEntryTargetsNpc(MenuEntry entry, NPC npc)
+    {
+        if (entry == null || npc == null)
+        {
+            return false;
+        }
+
+        if (entry.getIdentifier() == npc.getIndex())
+        {
+            return true;
+        }
+
+        String targetName = sanitizeTarget(entry.getTarget());
+        String npcName = getNpcDisplayName(npc);
+        return targetName != null && npcName != null && targetName.equalsIgnoreCase(npcName);
+    }
+
+    private NPC resolveTrackedNpcForMenuEntry(MenuEntry entry)
+    {
+        if (entry == null)
+        {
+            return null;
+        }
+
+        NPC trackedNpc = trackedNpcs.get(entry.getIdentifier());
+        if (trackedNpc != null)
+        {
+            return trackedNpc;
+        }
+
+        String targetName = sanitizeTarget(entry.getTarget());
+        if (targetName == null)
+        {
+            return null;
+        }
+
+        for (NPC candidate : trackedNpcs.values())
+        {
+            String candidateName = getNpcDisplayName(candidate);
+            if (candidateName != null && candidateName.equalsIgnoreCase(targetName))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
     @Subscribe
     public void onGameTick(GameTick event)
     {
@@ -1082,7 +1227,7 @@ public class WoWStyleNametagsPlugin extends Plugin
                     // applies to all future instances of the same NPC.
                     if (NPC_INTERACTION_ACTIONS.contains(typeId) || typeId == MenuAction.EXAMINE_NPC.getId())
                     {
-                        NPC trackedNpc = trackedNpcs.get(instanceIndex);
+                        NPC trackedNpc = resolveTrackedNpcForMenuEntry(e);
                         if (trackedNpc == null) continue;
                         int compId = trackedNpc.getId();
 
@@ -1169,7 +1314,7 @@ public class WoWStyleNametagsPlugin extends Plugin
                 boolean hasExamine = false;
                 for (MenuEntry e : entries)
                 {
-                    if (e.getIdentifier() != npc.getIndex()) continue;
+                    if (!menuEntryTargetsNpc(e, npc)) continue;
                     int typeId = e.getType().getId();
                     if (NPC_INTERACTION_ACTIONS.contains(typeId))
                     {

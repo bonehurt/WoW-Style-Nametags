@@ -264,7 +264,7 @@ public class WoWStyleNametagsOverlay extends Overlay
         {
             return null;
         }
-        String text = plugin.sanitizeEntityName(npc.getName());
+        String text = plugin.getNpcDisplayName(npc);
         if (text == null)
         {
             return null;
