@@ -4,6 +4,7 @@ import com.google.inject.Inject;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Shape;
@@ -43,6 +44,7 @@ public class WoWStyleNametagsOverlay extends Overlay
         final boolean outlineEnabled;
         final Color outlineColour;
         final int outlineThickness;
+        final int fontSize;
         /** Chebyshev tile distance from the local player — used for culling. */
         final int worldDist;
         /** Screen X of the text baseline (left edge). Immutable. */
@@ -51,13 +53,14 @@ public class WoWStyleNametagsOverlay extends Overlay
         int screenY;
 
         TagEntry(String text, Color colour, boolean outlineEnabled, Color outlineColour,
-                 int outlineThickness, int worldDist, int screenX, int screenY)
+                 int outlineThickness, int fontSize, int worldDist, int screenX, int screenY)
         {
             this.text            = text;
             this.colour          = colour;
             this.outlineEnabled  = outlineEnabled;
             this.outlineColour   = outlineColour;
             this.outlineThickness = outlineThickness;
+            this.fontSize        = fontSize;
             this.worldDist       = worldDist;
             this.screenX         = screenX;
             this.screenY         = screenY;
@@ -191,12 +194,12 @@ public class WoWStyleNametagsOverlay extends Overlay
      */
     private void resolveOverlaps(Graphics2D graphics, List<TagEntry> entries)
     {
-        FontMetrics fm = graphics.getFontMetrics();
         // Each int[] stores [left, top, right, bottom] of a placed tag's bounding box.
         List<int[]> placed = new ArrayList<>(entries.size());
 
         for (TagEntry entry : entries)
         {
+            FontMetrics fm = getFontMetricsForSize(graphics, entry.fontSize);
             int w = fm.stringWidth(entry.text);
             int h = fm.getAscent();
 
@@ -253,6 +256,27 @@ public class WoWStyleNametagsOverlay extends Overlay
         }
     }
 
+    private Font getFontForSize(Graphics2D graphics, int size)
+    {
+        Font base = graphics.getFont();
+        int clamped = Math.max(8, Math.min(30, size));
+        return base.deriveFont((float) clamped);
+    }
+
+    private FontMetrics getFontMetricsForSize(Graphics2D graphics, int size)
+    {
+        Font original = graphics.getFont();
+        try
+        {
+            graphics.setFont(getFontForSize(graphics, size));
+            return graphics.getFontMetrics();
+        }
+        finally
+        {
+            graphics.setFont(original);
+        }
+    }
+
     /**
      * Evaluates whether an NPC should receive a nametag and, if so, builds a
      * {@link TagEntry} with resolved colour/outline settings and natural screen
@@ -297,6 +321,7 @@ public class WoWStyleNametagsOverlay extends Overlay
         boolean outlineEnabled = false;
         Color outlineColour = null;
         int outlineThickness = 2;
+        int fontSize = 16;
 
         boolean follower = npc.getComposition() != null && npc.getComposition().isFollower();
 
@@ -312,6 +337,7 @@ public class WoWStyleNametagsOverlay extends Overlay
                 outlineEnabled   = plugin.myFollowerOutlineEnabled;
                 outlineColour    = plugin.myFollowerOutlineColour;
                 outlineThickness = plugin.myFollowerOutlineThickness;
+                fontSize         = plugin.myFollowerFontSize;
             }
             else
             {
@@ -320,13 +346,27 @@ public class WoWStyleNametagsOverlay extends Overlay
                 outlineEnabled   = plugin.otherPlayersFollowerOutlineEnabled;
                 outlineColour    = plugin.otherPlayersFollowerOutlineColour;
                 outlineThickness = plugin.otherPlayersFollowerOutlineThickness;
+                fontSize         = plugin.otherPlayersFollowerFontSize;
             }
         }
         else
         {
+            boolean trade = plugin.hasTradeOption(npc);
             boolean attack = plugin.hasAttackOption(npc);
             boolean talk   = plugin.hasTalkOption(npc);
             boolean nonTalkInteraction = plugin.hasNonTalkInteractionOption(npc);
+
+            if (trade)
+            {
+                if (!plugin.enableShopkeepers) return null;
+                colour           = plugin.shopkeeperColour;
+                outlineEnabled   = plugin.shopkeeperOutlineEnabled;
+                outlineColour    = plugin.shopkeeperOutlineColour;
+                outlineThickness = plugin.shopkeeperOutlineThickness;
+                fontSize         = plugin.shopkeeperFontSize;
+            }
+            else
+            {
 
             // Actively targeting the player — definitively aggressive regardless of level.
             // This catches always-aggressive NPCs (e.g. Lizardmen) that would otherwise
@@ -376,6 +416,7 @@ public class WoWStyleNametagsOverlay extends Overlay
                     outlineEnabled   = plugin.attackableOutlineEnabled;
                     outlineColour    = plugin.attackableOutlineColour;
                     outlineThickness = plugin.attackableOutlineThickness;
+                    fontSize         = plugin.attackableFontSize;
                 }
                 else
                 {
@@ -384,6 +425,7 @@ public class WoWStyleNametagsOverlay extends Overlay
                     outlineEnabled   = plugin.attackableTalkableOutlineEnabled;
                     outlineColour    = plugin.attackableTalkableOutlineColour;
                     outlineThickness = plugin.attackableTalkableOutlineThickness;
+                    fontSize         = plugin.attackableTalkableFontSize;
                 }
             }
             else if (attack)
@@ -395,6 +437,7 @@ public class WoWStyleNametagsOverlay extends Overlay
                     outlineEnabled   = plugin.passiveOutlineEnabled;
                     outlineColour    = plugin.passiveOutlineColour;
                     outlineThickness = plugin.passiveOutlineThickness;
+                    fontSize         = plugin.passiveFontSize;
                 }
                 else
                 {
@@ -403,6 +446,7 @@ public class WoWStyleNametagsOverlay extends Overlay
                     outlineEnabled   = plugin.attackableOutlineEnabled;
                     outlineColour    = plugin.attackableOutlineColour;
                     outlineThickness = plugin.attackableOutlineThickness;
+                    fontSize         = plugin.attackableFontSize;
                 }
             }
             else if (talk)
@@ -412,6 +456,7 @@ public class WoWStyleNametagsOverlay extends Overlay
                 outlineEnabled   = plugin.talkableOutlineEnabled;
                 outlineColour    = plugin.talkableOutlineColour;
                 outlineThickness = plugin.talkableOutlineThickness;
+                fontSize         = plugin.talkableFontSize;
             }
             else if (nonTalkInteraction)
             {
@@ -420,6 +465,8 @@ public class WoWStyleNametagsOverlay extends Overlay
                 outlineEnabled   = plugin.nonTalkInteractionOutlineEnabled;
                 outlineColour    = plugin.nonTalkInteractionOutlineColour;
                 outlineThickness = plugin.nonTalkInteractionOutlineThickness;
+                fontSize         = plugin.nonTalkInteractionFontSize;
+            }
             }
         }
 
@@ -431,14 +478,24 @@ public class WoWStyleNametagsOverlay extends Overlay
         int offset = plugin.anchorBelow
                 ? -plugin.verticalOffset
                 : npc.getLogicalHeight() + plugin.verticalOffset;
-        Point loc = npc.getCanvasTextLocation(graphics, text, offset);
+        Font original = graphics.getFont();
+        Point loc;
+        try
+        {
+            graphics.setFont(getFontForSize(graphics, fontSize));
+            loc = npc.getCanvasTextLocation(graphics, text, offset);
+        }
+        finally
+        {
+            graphics.setFont(original);
+        }
         if (loc == null)
         {
             return null;
         }
 
         int dist = localWp.distanceTo(npc.getWorldLocation());
-        return new TagEntry(text, colour, outlineEnabled, outlineColour, outlineThickness,
+        return new TagEntry(text, colour, outlineEnabled, outlineColour, outlineThickness, fontSize,
                 dist, loc.getX(), loc.getY());
     }
 
@@ -468,6 +525,7 @@ public class WoWStyleNametagsOverlay extends Overlay
         boolean outlineEnabled;
         Color outlineColour;
         int outlineThickness;
+        int fontSize;
 
         if (isSelf)
         {
@@ -476,6 +534,7 @@ public class WoWStyleNametagsOverlay extends Overlay
             outlineEnabled   = plugin.selfPlayerOutlineEnabled;
             outlineColour    = plugin.selfPlayerOutlineColour;
             outlineThickness = plugin.selfPlayerOutlineThickness;
+            fontSize         = plugin.selfPlayerFontSize;
         }
         else
         {
@@ -515,6 +574,7 @@ public class WoWStyleNametagsOverlay extends Overlay
                 outlineEnabled   = plugin.friendPlayersOutlineEnabled;
                 outlineColour    = plugin.friendPlayersOutlineColour;
                 outlineThickness = plugin.friendPlayersOutlineThickness;
+                fontSize         = plugin.friendPlayersFontSize;
             }
             else if (isClanMember && plugin.enableClanMembers)
             {
@@ -522,6 +582,7 @@ public class WoWStyleNametagsOverlay extends Overlay
                 outlineEnabled   = plugin.clanMembersOutlineEnabled;
                 outlineColour    = plugin.clanMembersOutlineColour;
                 outlineThickness = plugin.clanMembersOutlineThickness;
+                fontSize         = plugin.clanMembersFontSize;
             }
             else if (isGuestClanMember && plugin.enableGuestClanMembers)
             {
@@ -529,6 +590,7 @@ public class WoWStyleNametagsOverlay extends Overlay
                 outlineEnabled   = plugin.guestClanMembersOutlineEnabled;
                 outlineColour    = plugin.guestClanMembersOutlineColour;
                 outlineThickness = plugin.guestClanMembersOutlineThickness;
+                fontSize         = plugin.guestClanMembersFontSize;
             }
             else if (isGuestInYourClan && plugin.enableGuestsInYourClan)
             {
@@ -536,6 +598,7 @@ public class WoWStyleNametagsOverlay extends Overlay
                 outlineEnabled   = plugin.guestsInYourClanOutlineEnabled;
                 outlineColour    = plugin.guestsInYourClanOutlineColour;
                 outlineThickness = plugin.guestsInYourClanOutlineThickness;
+                fontSize         = plugin.guestsInYourClanFontSize;
             }
             else if (isClanChatMember && plugin.enableClanChatMembers)
             {
@@ -543,6 +606,7 @@ public class WoWStyleNametagsOverlay extends Overlay
                 outlineEnabled   = plugin.clanChatMembersOutlineEnabled;
                 outlineColour    = plugin.clanChatMembersOutlineColour;
                 outlineThickness = plugin.clanChatMembersOutlineThickness;
+                fontSize         = plugin.clanChatMembersFontSize;
             }
             else
             {
@@ -551,6 +615,7 @@ public class WoWStyleNametagsOverlay extends Overlay
                 outlineEnabled   = plugin.otherPlayersOutlineEnabled;
                 outlineColour    = plugin.otherPlayersOutlineColour;
                 outlineThickness = plugin.otherPlayersOutlineThickness;
+                fontSize         = plugin.otherPlayersFontSize;
             }
         }
 
@@ -564,7 +629,17 @@ public class WoWStyleNametagsOverlay extends Overlay
             offset += plugin.overheadIconOffset;
         }
 
-        Point loc = p.getCanvasTextLocation(graphics, name, offset);
+        Font original = graphics.getFont();
+        Point loc;
+        try
+        {
+            graphics.setFont(getFontForSize(graphics, fontSize));
+            loc = p.getCanvasTextLocation(graphics, name, offset);
+        }
+        finally
+        {
+            graphics.setFont(original);
+        }
         if (loc == null)
         {
             return null;
@@ -572,7 +647,7 @@ public class WoWStyleNametagsOverlay extends Overlay
 
         // Self uses distance 0, so it is strongly prioritized during culling.
         int dist = isSelf ? 0 : localWp.distanceTo(p.getWorldLocation());
-        return new TagEntry(name, colour, outlineEnabled, outlineColour, outlineThickness,
+        return new TagEntry(name, colour, outlineEnabled, outlineColour, outlineThickness, fontSize,
                 dist, loc.getX(), loc.getY());
     }
 
@@ -613,11 +688,14 @@ public class WoWStyleNametagsOverlay extends Overlay
     /** Draws a fully-resolved {@link TagEntry} at its (possibly stacked) screen position. */
     private void renderTag(Graphics2D graphics, TagEntry entry)
     {
+        Font original = graphics.getFont();
+        graphics.setFont(getFontForSize(graphics, entry.fontSize));
+
         Point loc = new Point(entry.screenX, entry.screenY);
 
-        if (entry.outlineEnabled)
+        try
         {
-            try
+            if (entry.outlineEnabled)
             {
                 Color base    = entry.outlineColour != null ? entry.outlineColour : Color.BLACK;
                 Color outline = new Color(base.getRed(), base.getGreen(), base.getBlue(), 255);
@@ -636,14 +714,18 @@ public class WoWStyleNametagsOverlay extends Overlay
                 graphics.setColor(entry.colour);
                 graphics.fill(transformed);
             }
-            catch (Exception e)
+            else
             {
                 OverlayUtil.renderTextLocation(graphics, loc, entry.text, entry.colour);
             }
         }
-        else
+        catch (Exception e)
         {
             OverlayUtil.renderTextLocation(graphics, loc, entry.text, entry.colour);
+        }
+        finally
+        {
+            graphics.setFont(original);
         }
     }
 }

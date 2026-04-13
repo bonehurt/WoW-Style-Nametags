@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4] - 2026-04-13
+
+### Added
+- Added a dedicated `Shopkeepers` NPC category for any NPC with a `Trade` menu option, with the usual toggle, label colour, and outline controls.
+- Added per-category nametag font size controls.
+
 ## [1.3.1] - 2026-04-10
 
 ### Fixed

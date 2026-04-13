@@ -13,9 +13,10 @@ NPCs are automatically classified and coloured by their type:
 |---|---|---|
 | Aggressive | Red | Attackable NPCs that are currently targeting you, learned always-aggressive NPC types, or high-threat attack-only NPCs |
 | Passive | Orange | Attack-only NPCs at or below the non-aggro threshold (combat level at most 2x yours) |
-| Neutral | Yellow | NPCs that are both attackable and have a non-attack interaction (Talk-to or other interactions) |
-| Friendly | Green | NPCs with a Talk-to option (e.g. shopkeepers, quest NPCs) |
-| Friendly non-talkers | Pink | NPCs with non-attack interactions that are not Talk-to'able (e.g. Catch, Shear, Pet) |
+| Neutral | Yellow | NPCs that are both attackable and have a non-attack interaction ('Talk-to' or other interactions) |
+| Friendly | Green | NPCs with a 'Talk-to' option (e.g. random towns folk, quest NPCs) |
+| Friendly non-talkers | Pink | NPCs with non-attack interactions that are not 'Talk-to' (e.g. Catch, Shear, Pet) |
+| Shopkeepers | White | NPCs with a 'Trade' interaction option |
 
 Notes:
 - Examine-only NPCs are hidden by default to avoid false positives (for example, trees/resource-like entities).
@@ -68,6 +69,7 @@ From this...
 ### Colour & outline customisation
 Every category has its own independently configurable:
 - Label colour
+- Font size
 - Outline toggle, colour, and thickness
 
 ### Position control
@@ -78,4 +80,4 @@ Every category has its own independently configurable:
 
 ---
 
-<sub>Current version: 1.3.1</sub>
+<sub>Current version: 1.4</sub>

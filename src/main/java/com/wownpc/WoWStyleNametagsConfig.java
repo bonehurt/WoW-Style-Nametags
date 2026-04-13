@@ -90,7 +90,7 @@ public interface WoWStyleNametagsConfig extends Config
     }
 
     @ConfigItem(
-        position = 11,
+        position = 14,
         keyName = "enableMyFollowers",
         name = "Enable for your followers",
         description = "Show nametags for follower NPCs owned by you"
@@ -101,7 +101,7 @@ public interface WoWStyleNametagsConfig extends Config
     }
 
     @ConfigItem(
-        position = 12,
+        position = 15,
         keyName = "enableOtherPlayersFollowers",
         name = "Enable for other players' followers",
         description = "Show nametags for follower NPCs owned by other players"
@@ -124,6 +124,17 @@ public interface WoWStyleNametagsConfig extends Config
 
     @ConfigItem(
         position = 11,
+        keyName = "enableShopkeepers",
+        name = "Enable for Shopkeepers",
+        description = "Show nametags for NPCs with a Trade interaction option"
+    )
+    default boolean enableShopkeepers()
+    {
+        return true;
+    }
+
+    @ConfigItem(
+        position = 13,
         keyName = "enableOtherPlayers",
         name = "Enable for other players",
         description = "Show nametags for other players"
@@ -147,7 +158,7 @@ public interface WoWStyleNametagsConfig extends Config
     // --- Colours ---
     @Alpha
     @ConfigItem(
-        position = 14,
+        position = 16,
         keyName = "attackableColour",
         name = "Aggressive NPC colour",
         description = "Colour used for aggressive NPCs"
@@ -159,7 +170,7 @@ public interface WoWStyleNametagsConfig extends Config
 
     @Alpha
     @ConfigItem(
-        position = 15,
+        position = 17,
         keyName = "passiveColour",
         name = "Passive NPC colour",
         description = "Colour used for attackable NPCs within the non-aggression threshold (combat level at most 2x yours)"
@@ -171,7 +182,7 @@ public interface WoWStyleNametagsConfig extends Config
 
     @Alpha
     @ConfigItem(
-        position = 16,
+        position = 18,
         keyName = "attackableTalkableColour",
         name = "Neutral NPC colour",
         description = "Colour used for neutral NPCs"
@@ -183,7 +194,7 @@ public interface WoWStyleNametagsConfig extends Config
 
     @Alpha
     @ConfigItem(
-        position = 17,
+        position = 19,
         keyName = "talkableColour",
         name = "Friendly NPC colour",
         description = "Colour used for friendly NPCs"
@@ -195,7 +206,7 @@ public interface WoWStyleNametagsConfig extends Config
 
     @Alpha
     @ConfigItem(
-        position = 18,
+        position = 20,
         keyName = "nonTalkInteractionColour",
         name = "Friendly non-talkers colour",
         description = "Colour used for NPCs with non-attack interactions that are not Talk-to (e.g. Catch, Shear, Pet)"
@@ -207,7 +218,7 @@ public interface WoWStyleNametagsConfig extends Config
 
     @Alpha
     @ConfigItem(
-        position = 19,
+        position = 22,
         keyName = "selfPlayerColour",
         name = "Your nametag colour",
         description = "Colour used for your nametag"
@@ -219,7 +230,7 @@ public interface WoWStyleNametagsConfig extends Config
 
     @Alpha
     @ConfigItem(
-        position = 20,
+        position = 23,
         keyName = "otherPlayersColour",
         name = "Other players colour",
         description = "Colour used for other players"
@@ -231,7 +242,7 @@ public interface WoWStyleNametagsConfig extends Config
 
     @Alpha
     @ConfigItem(
-        position = 21,
+        position = 24,
         keyName = "myFollowerColour",
         name = "Your followers colour",
         description = "Colour used for follower NPCs owned by you"
@@ -243,7 +254,7 @@ public interface WoWStyleNametagsConfig extends Config
 
     @Alpha
     @ConfigItem(
-        position = 22,
+        position = 25,
         keyName = "otherPlayersFollowerColour",
         name = "Other players' followers colour",
         description = "Colour used for follower NPCs owned by other players"
@@ -251,6 +262,18 @@ public interface WoWStyleNametagsConfig extends Config
     default Color otherPlayersFollowerColour()
     {
         return new Color(0xFFD3BDFF, true);
+    }
+
+    @Alpha
+    @ConfigItem(
+        position = 21,
+        keyName = "shopkeeperColour",
+        name = "Shopkeepers colour",
+        description = "Colour used for NPCs with a Trade interaction option"
+    )
+    default Color shopkeeperColour()
+    {
+        return new Color(0xFFF4F4F4, true);
     }
 
     @ConfigSection(
@@ -270,25 +293,228 @@ public interface WoWStyleNametagsConfig extends Config
     @ConfigSection(
         name = "Player Relationship Styles",
         description = "Enable style overrides and set colours for friends, clan members, chat channel members, and guest clan relationships",
-        position = 25
+        position = 37
     )
     String playerRelationsSection = "playerRelationsSection";
 
     @ConfigSection(
         name = "Player Relationship Outline",
         description = "Outline settings for friends, clan members, chat channel members, and guest clan relationships",
-        position = 60
+        position = 90
     )
     String playerRelationsOutlineSection = "playerRelationsOutlineSection";
 
     @ConfigSection(
         name = "Follower Outline",
         description = "Outline settings for follower nametags",
-        position = 76
+        position = 100
     )
     String followerOutlineSection = "followerOutlineSection";
 
-    // --- NPC Outline (positions 41-52) ---
+    @ConfigSection(
+        name = "Font Sizes",
+        description = "Per-category nametag font size settings",
+        position = 39
+    )
+    String fontSizeSection = "fontSizeSection";
+
+    // --- Font Sizes (positions 110-124) ---
+    @ConfigItem(
+        position = 110,
+        keyName = "attackableFontSize",
+        name = "Aggressive NPC font size",
+        description = "Font size for aggressive NPC nametags",
+        section = "fontSizeSection"
+    )
+    @Range(min = 8, max = 30)
+    default int attackableFontSize()
+    {
+        return 16;
+    }
+
+    @ConfigItem(
+        position = 111,
+        keyName = "passiveFontSize",
+        name = "Passive NPC font size",
+        description = "Font size for passive NPC nametags",
+        section = "fontSizeSection"
+    )
+    @Range(min = 8, max = 30)
+    default int passiveFontSize()
+    {
+        return 16;
+    }
+
+    @ConfigItem(
+        position = 112,
+        keyName = "attackableTalkableFontSize",
+        name = "Neutral NPC font size",
+        description = "Font size for neutral NPC nametags",
+        section = "fontSizeSection"
+    )
+    @Range(min = 8, max = 30)
+    default int attackableTalkableFontSize()
+    {
+        return 16;
+    }
+
+    @ConfigItem(
+        position = 113,
+        keyName = "talkableFontSize",
+        name = "Friendly NPC font size",
+        description = "Font size for friendly NPC nametags",
+        section = "fontSizeSection"
+    )
+    @Range(min = 8, max = 30)
+    default int talkableFontSize()
+    {
+        return 16;
+    }
+
+    @ConfigItem(
+        position = 114,
+        keyName = "nonTalkInteractionFontSize",
+        name = "Friendly non-talkers font size",
+        description = "Font size for Friendly non-talkers nametags",
+        section = "fontSizeSection"
+    )
+    @Range(min = 8, max = 30)
+    default int nonTalkInteractionFontSize()
+    {
+        return 16;
+    }
+
+    @ConfigItem(
+        position = 115,
+        keyName = "shopkeeperFontSize",
+        name = "Shopkeepers font size",
+        description = "Font size for shopkeeper nametags",
+        section = "fontSizeSection"
+    )
+    @Range(min = 8, max = 30)
+    default int shopkeeperFontSize()
+    {
+        return 16;
+    }
+
+    @ConfigItem(
+        position = 116,
+        keyName = "selfPlayerFontSize",
+        name = "Your nametag font size",
+        description = "Font size for your own nametag",
+        section = "fontSizeSection"
+    )
+    @Range(min = 8, max = 30)
+    default int selfPlayerFontSize()
+    {
+        return 16;
+    }
+
+    @ConfigItem(
+        position = 117,
+        keyName = "otherPlayersFontSize",
+        name = "Other players font size",
+        description = "Font size for other players' nametags",
+        section = "fontSizeSection"
+    )
+    @Range(min = 8, max = 30)
+    default int otherPlayersFontSize()
+    {
+        return 16;
+    }
+
+    @ConfigItem(
+        position = 118,
+        keyName = "friendPlayersFontSize",
+        name = "Friends font size",
+        description = "Font size for friends' nametags",
+        section = "fontSizeSection"
+    )
+    @Range(min = 8, max = 30)
+    default int friendPlayersFontSize()
+    {
+        return 16;
+    }
+
+    @ConfigItem(
+        position = 119,
+        keyName = "clanMembersFontSize",
+        name = "Clan members font size",
+        description = "Font size for clan members' nametags",
+        section = "fontSizeSection"
+    )
+    @Range(min = 8, max = 30)
+    default int clanMembersFontSize()
+    {
+        return 16;
+    }
+
+    @ConfigItem(
+        position = 120,
+        keyName = "clanChatMembersFontSize",
+        name = "Chat channel members font size",
+        description = "Font size for chat channel members' nametags",
+        section = "fontSizeSection"
+    )
+    @Range(min = 8, max = 30)
+    default int clanChatMembersFontSize()
+    {
+        return 16;
+    }
+
+    @ConfigItem(
+        position = 121,
+        keyName = "guestClanMembersFontSize",
+        name = "Clan members (Guest) font size",
+        description = "Font size for clan members (Guest) nametags",
+        section = "fontSizeSection"
+    )
+    @Range(min = 8, max = 30)
+    default int guestClanMembersFontSize()
+    {
+        return 16;
+    }
+
+    @ConfigItem(
+        position = 122,
+        keyName = "guestsInYourClanFontSize",
+        name = "Guests in your clan font size",
+        description = "Font size for guests in your clan nametags",
+        section = "fontSizeSection"
+    )
+    @Range(min = 8, max = 30)
+    default int guestsInYourClanFontSize()
+    {
+        return 16;
+    }
+
+    @ConfigItem(
+        position = 123,
+        keyName = "myFollowerFontSize",
+        name = "Your followers font size",
+        description = "Font size for your followers' nametags",
+        section = "fontSizeSection"
+    )
+    @Range(min = 8, max = 30)
+    default int myFollowerFontSize()
+    {
+        return 16;
+    }
+
+    @ConfigItem(
+        position = 124,
+        keyName = "otherPlayersFollowerFontSize",
+        name = "Other players' followers font size",
+        description = "Font size for other players' followers' nametags",
+        section = "fontSizeSection"
+    )
+    @Range(min = 8, max = 30)
+    default int otherPlayersFollowerFontSize()
+    {
+        return 16;
+    }
+
+    // --- NPC Outline (positions 41-58) ---
     @ConfigItem(
         position = 41,
         keyName = "attackableOutlineEnabled",
@@ -455,7 +681,7 @@ public interface WoWStyleNametagsConfig extends Config
 
     @Alpha
     @ConfigItem(
-        position = 86,
+        position = 54,
         keyName = "nonTalkInteractionOutlineColour",
         name = "Friendly non-talkers outline colour",
         description = "Outline colour for Friendly non-talkers",
@@ -467,7 +693,7 @@ public interface WoWStyleNametagsConfig extends Config
     }
 
     @ConfigItem(
-        position = 87,
+        position = 55,
         keyName = "nonTalkInteractionOutlineThickness",
         name = "Friendly non-talkers outline thickness",
         description = "Thickness for Friendly non-talkers outline",
@@ -479,9 +705,47 @@ public interface WoWStyleNametagsConfig extends Config
         return 2;
     }
 
-    // --- Player Outline (positions 54-59) ---
     @ConfigItem(
-        position = 54,
+        position = 56,
+        keyName = "shopkeeperOutlineEnabled",
+        name = "Enable outline for Shopkeepers",
+        description = "Show outline for Shopkeepers",
+        section = "npcOutlineSection"
+    )
+    default boolean shopkeeperOutlineEnabled()
+    {
+        return true;
+    }
+
+    @Alpha
+    @ConfigItem(
+        position = 57,
+        keyName = "shopkeeperOutlineColour",
+        name = "Shopkeepers outline colour",
+        description = "Outline colour for Shopkeepers",
+        section = "npcOutlineSection"
+    )
+    default Color shopkeeperOutlineColour()
+    {
+        return null;
+    }
+
+    @ConfigItem(
+        position = 58,
+        keyName = "shopkeeperOutlineThickness",
+        name = "Shopkeepers outline thickness",
+        description = "Thickness for Shopkeepers outline",
+        section = "npcOutlineSection"
+    )
+    @Range(min = 1, max = 10)
+    default int shopkeeperOutlineThickness()
+    {
+        return 2;
+    }
+
+    // --- Player Outline (positions 79-84) ---
+    @ConfigItem(
+        position = 82,
         keyName = "otherPlayersOutlineEnabled",
         name = "Enable outline for other players",
         description = "Enable outline for other players",
@@ -494,7 +758,7 @@ public interface WoWStyleNametagsConfig extends Config
 
     @Alpha
     @ConfigItem(
-        position = 55,
+        position = 83,
         keyName = "otherPlayersOutlineColour",
         name = "Other players outline colour",
         description = "Outline colour for other players",
@@ -506,7 +770,7 @@ public interface WoWStyleNametagsConfig extends Config
     }
 
     @ConfigItem(
-        position = 56,
+        position = 84,
         keyName = "otherPlayersOutlineThickness",
         name = "Other players outline thickness",
         description = "Thickness for other players outline",
@@ -519,7 +783,7 @@ public interface WoWStyleNametagsConfig extends Config
     }
 
     @ConfigItem(
-        position = 57,
+        position = 79,
         keyName = "selfPlayerOutlineEnabled",
         name = "Enable outline for your nametag",
         description = "Show outline for your nametag",
@@ -532,7 +796,7 @@ public interface WoWStyleNametagsConfig extends Config
 
     @Alpha
     @ConfigItem(
-        position = 58,
+        position = 80,
         keyName = "selfPlayerOutlineColour",
         name = "Your nametag outline colour",
         description = "Outline colour for your nametag",
@@ -544,7 +808,7 @@ public interface WoWStyleNametagsConfig extends Config
     }
 
     @ConfigItem(
-        position = 59,
+        position = 81,
         keyName = "selfPlayerOutlineThickness",
         name = "Your nametag outline thickness",
         description = "Thickness for your nametag outline",
@@ -559,7 +823,7 @@ public interface WoWStyleNametagsConfig extends Config
     // --- Follower Outline (positions 77-82) ---
 
     @ConfigItem(
-        position = 77,
+        position = 101,
         keyName = "myFollowerOutlineEnabled",
         name = "Enable outline for your followers",
         description = "Show outline for your followers",
@@ -572,7 +836,7 @@ public interface WoWStyleNametagsConfig extends Config
 
     @Alpha
     @ConfigItem(
-        position = 78,
+        position = 102,
         keyName = "myFollowerOutlineColour",
         name = "Your followers outline colour",
         description = "Outline colour for your followers",
@@ -584,7 +848,7 @@ public interface WoWStyleNametagsConfig extends Config
     }
 
     @ConfigItem(
-        position = 79,
+        position = 103,
         keyName = "myFollowerOutlineThickness",
         name = "Your followers outline thickness",
         description = "Thickness for your followers outline",
@@ -597,7 +861,7 @@ public interface WoWStyleNametagsConfig extends Config
     }
 
     @ConfigItem(
-        position = 80,
+        position = 104,
         keyName = "otherPlayersFollowerOutlineEnabled",
         name = "Enable outline for other players' followers",
         description = "Enable outline for other players' followers",
@@ -610,7 +874,7 @@ public interface WoWStyleNametagsConfig extends Config
 
     @Alpha
     @ConfigItem(
-        position = 81,
+        position = 105,
         keyName = "otherPlayersFollowerOutlineColour",
         name = "Other players' followers outline colour",
         description = "Outline colour for other players' followers",
@@ -622,7 +886,7 @@ public interface WoWStyleNametagsConfig extends Config
     }
 
     @ConfigItem(
-        position = 82,
+        position = 106,
         keyName = "otherPlayersFollowerOutlineThickness",
         name = "Other players' followers outline thickness",
         description = "Outline thickness for other players' followers",
@@ -953,12 +1217,12 @@ public interface WoWStyleNametagsConfig extends Config
     @ConfigSection(
         name = "Culling & Positioning",
         description = "Control nametag placement, overlap behaviour, and compatibility with entity-hiding plugins",
-        position = 23
+        position = 30
     )
     String cullingSection = "cullingSection";
 
     @ConfigItem(
-        position = 23,
+        position = 31,
         keyName = "maxEntities",
         name = "Max nametags shown",
         description = "Maximum number of nametags visible at once, sorted by distance (0 = unlimited)",
@@ -971,7 +1235,7 @@ public interface WoWStyleNametagsConfig extends Config
     }
 
     @ConfigItem(
-        position = 24,
+        position = 32,
         keyName = "verticalOffset",
         name = "Vertical offset",
         description = "Pixels to offset the nametag (when above: adds to height; when below: subtracts from height)",
@@ -984,7 +1248,7 @@ public interface WoWStyleNametagsConfig extends Config
     }
 
     @ConfigItem(
-        position = 25,
+        position = 33,
         keyName = "anchorBelow",
         name = "Anchor below",
         description = "If enabled, position the nametag below entities instead of above",
@@ -996,7 +1260,7 @@ public interface WoWStyleNametagsConfig extends Config
     }
 
     @ConfigItem(
-        position = 26,
+        position = 34,
         keyName = "stackTags",
         name = "Stack overlapping nametags",
         description = "Shift nametags that would overlap vertically, closest entity keeps its natural position",
@@ -1008,7 +1272,7 @@ public interface WoWStyleNametagsConfig extends Config
     }
 
     @ConfigItem(
-        position = 27,
+        position = 35,
         keyName = "respectEntityHiders",
         name = "Respect entity hiders",
         description = "Hide nametags when another render-hiding plugin suppresses the actor, e.g. Dynamic Entity Hider",
@@ -1020,7 +1284,7 @@ public interface WoWStyleNametagsConfig extends Config
     }
 
     @ConfigItem(
-        position = 28,
+        position = 36,
         keyName = "overheadIconOffset",
         name = "Extra overhead lift for icons",
         description = "Extra upward offset added to nametags when an overhead icon is active (prayers, PK skull, etc.). Increase if nametag still overlaps the icon",

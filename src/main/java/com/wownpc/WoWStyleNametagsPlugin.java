@@ -49,9 +49,9 @@ import net.runelite.client.ui.overlay.OverlayManager;
 )
 public class WoWStyleNametagsPlugin extends Plugin
 {
-    private static final String CURRENT_VERSION = "1.3.1";
+    private static final String CURRENT_VERSION = "1.4";
     private static final String UPDATE_NOTICE_VERSION_KEY = "updateNoticeVersion";
-    private static final String UPDATE_NOTICE_TEXT = "New NPC nametag, improved NPC detection + Other bug fixes!";
+    private static final String UPDATE_NOTICE_TEXT = "New 'Shopkeeper' nametag + adjustable font sizes!";
 
     // Interaction-only actions (excludes Examine). Used to distinguish
     // "examine-only" NPCs from NPCs with real interaction options (Talk-to, Bank, etc.).
@@ -80,6 +80,7 @@ public class WoWStyleNametagsPlugin extends Plugin
 
     private static final String ATTACK_KEYWORD = "attack";
     private static final String TALK_KEYWORD = "talk";
+    private static final String TRADE_KEYWORD = "trade";
     private static final String FISHING_SPOT_KEYWORD = "fishing spot";
 
     // --- Hover state (written by onMenuEntryAdded / onGameTick, read by overlay) ---
@@ -97,30 +98,42 @@ public class WoWStyleNametagsPlugin extends Plugin
     // NPC categories
     boolean enableAttackable;
     Color attackableColour;
+    int attackableFontSize;
     boolean attackableOutlineEnabled;
     Color attackableOutlineColour;
     int attackableOutlineThickness;
 
     boolean enablePassive;
     Color passiveColour;
+    int passiveFontSize;
     boolean passiveOutlineEnabled;
     Color passiveOutlineColour;
     int passiveOutlineThickness;
 
     boolean enableTalkable;
     Color talkableColour;
+    int talkableFontSize;
     boolean talkableOutlineEnabled;
     Color talkableOutlineColour;
     int talkableOutlineThickness;
 
     boolean enableNonTalkInteraction;
     Color nonTalkInteractionColour;
+    int nonTalkInteractionFontSize;
     boolean nonTalkInteractionOutlineEnabled;
     Color nonTalkInteractionOutlineColour;
     int nonTalkInteractionOutlineThickness;
 
+    boolean enableShopkeepers;
+    Color shopkeeperColour;
+    int shopkeeperFontSize;
+    boolean shopkeeperOutlineEnabled;
+    Color shopkeeperOutlineColour;
+    int shopkeeperOutlineThickness;
+
     boolean enableAttackableTalkable;
     Color attackableTalkableColour;
+    int attackableTalkableFontSize;
     boolean attackableTalkableOutlineEnabled;
     Color attackableTalkableOutlineColour;
     int attackableTalkableOutlineThickness;
@@ -128,42 +141,49 @@ public class WoWStyleNametagsPlugin extends Plugin
     // Players
     boolean enableSelfPlayer;
     Color selfPlayerColour;
+    int selfPlayerFontSize;
     boolean selfPlayerOutlineEnabled;
     Color selfPlayerOutlineColour;
     int selfPlayerOutlineThickness;
 
     boolean enableOtherPlayers;
     Color otherPlayersColour;
+    int otherPlayersFontSize;
     boolean otherPlayersOutlineEnabled;
     Color otherPlayersOutlineColour;
     int otherPlayersOutlineThickness;
 
     boolean enableFriendPlayers;
     Color friendPlayersColour;
+    int friendPlayersFontSize;
     boolean friendPlayersOutlineEnabled;
     Color friendPlayersOutlineColour;
     int friendPlayersOutlineThickness;
 
     boolean enableClanMembers;
     Color clanMembersColour;
+    int clanMembersFontSize;
     boolean clanMembersOutlineEnabled;
     Color clanMembersOutlineColour;
     int clanMembersOutlineThickness;
 
     boolean enableClanChatMembers;
     Color clanChatMembersColour;
+    int clanChatMembersFontSize;
     boolean clanChatMembersOutlineEnabled;
     Color clanChatMembersOutlineColour;
     int clanChatMembersOutlineThickness;
 
     boolean enableGuestClanMembers;
     Color guestClanMembersColour;
+    int guestClanMembersFontSize;
     boolean guestClanMembersOutlineEnabled;
     Color guestClanMembersOutlineColour;
     int guestClanMembersOutlineThickness;
 
     boolean enableGuestsInYourClan;
     Color guestsInYourClanColour;
+    int guestsInYourClanFontSize;
     boolean guestsInYourClanOutlineEnabled;
     Color guestsInYourClanOutlineColour;
     int guestsInYourClanOutlineThickness;
@@ -171,12 +191,14 @@ public class WoWStyleNametagsPlugin extends Plugin
     // Followers
     boolean enableMyFollowers;
     Color myFollowerColour;
+    int myFollowerFontSize;
     boolean myFollowerOutlineEnabled;
     Color myFollowerOutlineColour;
     int myFollowerOutlineThickness;
 
     boolean enableOtherPlayersFollowers;
     Color otherPlayersFollowerColour;
+    int otherPlayersFollowerFontSize;
     boolean otherPlayersFollowerOutlineEnabled;
     Color otherPlayersFollowerOutlineColour;
     int otherPlayersFollowerOutlineThickness;
@@ -194,6 +216,7 @@ public class WoWStyleNametagsPlugin extends Plugin
      */
     private final Set<Integer> persistentTalkable = ConcurrentHashMap.newKeySet();
     private final Set<Integer> persistentTalkTo = ConcurrentHashMap.newKeySet();
+    private final Set<Integer> persistentTradeable = ConcurrentHashMap.newKeySet();
     /**
      * NPC <em>composition IDs</em> ({@link NPC#getId()}) confirmed as having no Talk-to
      * option (e.g. examine-only NPCs such as Ducklings). Same lifetime guarantees as
@@ -294,6 +317,7 @@ public class WoWStyleNametagsPlugin extends Plugin
         enableAttackableTalkable = config.enableAttackableTalkable();
         enableTalkable = config.enableTalkable();
         enableNonTalkInteraction = config.enableNonTalkInteraction();
+        enableShopkeepers = config.enableShopkeepers();
 
         // Player and follower toggles
         enableSelfPlayer = config.enableSelfPlayer();
@@ -315,19 +339,35 @@ public class WoWStyleNametagsPlugin extends Plugin
 
         // Colours
         attackableColour = config.attackableColour();
+        attackableFontSize = config.attackableFontSize();
         passiveColour = config.passiveColour();
+        passiveFontSize = config.passiveFontSize();
         attackableTalkableColour = config.attackableTalkableColour();
+        attackableTalkableFontSize = config.attackableTalkableFontSize();
         talkableColour = config.talkableColour();
+        talkableFontSize = config.talkableFontSize();
         nonTalkInteractionColour = config.nonTalkInteractionColour();
+        nonTalkInteractionFontSize = config.nonTalkInteractionFontSize();
+        shopkeeperColour = config.shopkeeperColour();
+        shopkeeperFontSize = config.shopkeeperFontSize();
         selfPlayerColour = config.selfPlayerColour();
+        selfPlayerFontSize = config.selfPlayerFontSize();
         otherPlayersColour = config.otherPlayersColour();
+        otherPlayersFontSize = config.otherPlayersFontSize();
         friendPlayersColour = config.friendPlayersColour();
+        friendPlayersFontSize = config.friendPlayersFontSize();
         clanMembersColour = config.clanMembersColour();
+        clanMembersFontSize = config.clanMembersFontSize();
         clanChatMembersColour = config.clanChatMembersColour();
+        clanChatMembersFontSize = config.clanChatMembersFontSize();
         guestClanMembersColour = config.guestClanMembersColour();
+        guestClanMembersFontSize = config.guestClanMembersFontSize();
         guestsInYourClanColour = config.guestsInYourClanColour();
+        guestsInYourClanFontSize = config.guestsInYourClanFontSize();
         myFollowerColour = config.myFollowerColour();
+        myFollowerFontSize = config.myFollowerFontSize();
         otherPlayersFollowerColour = config.otherPlayersFollowerColour();
+        otherPlayersFollowerFontSize = config.otherPlayersFollowerFontSize();
 
         // Outlines
         attackableOutlineEnabled = config.attackableOutlineEnabled();
@@ -349,6 +389,10 @@ public class WoWStyleNametagsPlugin extends Plugin
         nonTalkInteractionOutlineEnabled = config.nonTalkInteractionOutlineEnabled();
         nonTalkInteractionOutlineColour = config.nonTalkInteractionOutlineColour();
         nonTalkInteractionOutlineThickness = config.nonTalkInteractionOutlineThickness();
+
+        shopkeeperOutlineEnabled = config.shopkeeperOutlineEnabled();
+        shopkeeperOutlineColour = config.shopkeeperOutlineColour();
+        shopkeeperOutlineThickness = config.shopkeeperOutlineThickness();
 
         otherPlayersOutlineEnabled = config.otherPlayersOutlineEnabled();
         otherPlayersOutlineColour = config.otherPlayersOutlineColour();
@@ -942,6 +986,55 @@ public class WoWStyleNametagsPlugin extends Plugin
         return false;
     }
 
+    public boolean hasTradeOption(NPC npc)
+    {
+        if (npc == null)
+        {
+            return false;
+        }
+
+        int compId = npc.getId();
+        if (persistentTradeable.contains(compId))
+        {
+            return true;
+        }
+
+        net.runelite.api.NPCComposition composition = npc.getComposition();
+        if (composition != null && hasTradeInteraction(composition.getActions()))
+        {
+            persistentTradeable.add(compId);
+            return true;
+        }
+
+        net.runelite.api.NPCComposition transformed = npc.getTransformedComposition();
+        if (transformed != null && hasTradeInteraction(transformed.getActions()))
+        {
+            persistentTradeable.add(compId);
+            return true;
+        }
+
+        try
+        {
+            MenuEntry[] entries = client.getMenu().getMenuEntries();
+            if (entries != null)
+            {
+                for (MenuEntry e : entries)
+                {
+                    if (!menuEntryTargetsNpc(e, npc)) continue;
+                    if (!NPC_INTERACTION_ACTIONS.contains(e.getType().getId())) continue;
+                    if (isTradeInteractionOption(e.getOption()))
+                    {
+                        persistentTradeable.add(compId);
+                        return true;
+                    }
+                }
+            }
+        }
+        catch (Exception ignored) {}
+
+        return false;
+    }
+
     @Subscribe
     public void onNpcSpawned(NpcSpawned event)
     {
@@ -1101,6 +1194,10 @@ public class WoWStyleNametagsPlugin extends Plugin
                 if (trackedNpc != null)
                 {
                     int compId = trackedNpc.getId();
+                    if (isTradeInteractionOption(op))
+                    {
+                        persistentTradeable.add(compId);
+                    }
                     if (isAttackInteractionOption(op))
                     {
                         cacheAttackability(compId, true);
@@ -1208,6 +1305,7 @@ public class WoWStyleNametagsPlugin extends Plugin
                 java.util.Set<Integer> withInteraction = new java.util.HashSet<>();
                 java.util.Set<Integer> withFriendly   = new java.util.HashSet<>();
                 java.util.Set<Integer> withAttack     = new java.util.HashSet<>();
+                java.util.Set<Integer> withTrade      = new java.util.HashSet<>();
                 java.util.Set<Integer> examineOnly    = new java.util.HashSet<>();
 
                 for (MenuEntry e : entries)
@@ -1239,6 +1337,10 @@ public class WoWStyleNametagsPlugin extends Plugin
                             {
                                 withAttack.add(compId);
                                 cacheAttackability(compId, true);
+                            }
+                            if (isTradeInteractionOption(opt))
+                            {
+                                withTrade.add(compId);
                             }
                             if (isFriendlyInteractionOption(opt))
                             {
@@ -1276,6 +1378,11 @@ public class WoWStyleNametagsPlugin extends Plugin
                 for (int compId : withAttack)
                 {
                     cacheAttackability(compId, true);
+                }
+
+                for (int compId : withTrade)
+                {
+                    persistentTradeable.add(compId);
                 }
 
                 // NPC types that appeared only via Examine are hidden by default.
@@ -1320,6 +1427,10 @@ public class WoWStyleNametagsPlugin extends Plugin
                     {
                         hasInteraction = true;
                         String opt = e.getOption();
+                        if (isTradeInteractionOption(opt))
+                        {
+                            persistentTradeable.add(npc.getId());
+                        }
                         if (isFriendlyInteractionOption(opt))
                         {
                             persistentTalkable.add(npc.getId());  // composition ID
@@ -1434,6 +1545,24 @@ public class WoWStyleNametagsPlugin extends Plugin
         return false;
     }
 
+    private boolean hasTradeInteraction(String[] actions)
+    {
+        if (actions == null)
+        {
+            return false;
+        }
+
+        for (String action : actions)
+        {
+            if (isTradeInteractionOption(action))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private boolean isNonTalkInteractionOption(String option)
     {
         if (option == null)
@@ -1445,6 +1574,17 @@ public class WoWStyleNametagsPlugin extends Plugin
         return !normalized.isEmpty()
                 && !normalized.contains(ATTACK_KEYWORD)
                 && !normalized.contains(TALK_KEYWORD);
+    }
+
+    private boolean isTradeInteractionOption(String option)
+    {
+        if (option == null)
+        {
+            return false;
+        }
+
+        String normalized = option.trim().toLowerCase(Locale.ROOT);
+        return !normalized.isEmpty() && normalized.contains(TRADE_KEYWORD);
     }
 
     private boolean isFriendlyInteractionOption(String option)
