@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.5] - 2026-04-23
+## [1.5] - 2026-07-06
 
 ### Added
 - Added a dedicated `Animals` NPC category for animals (e.g. dogs, cats, cows, ducklings). Animals are identified by a built-in name list and the presence of a `Pet` interaction option. Disabling the Animals toggle hides all listed animals even if they would match another category (e.g. Passive), while still allowing hostile tags to show if the animal is actively targeting the player or has been observed as aggressive.
@@ -11,7 +11,7 @@
 - Fixed an issue where nametags would fail to appear for players and NPCs when inside dynamic instances, such as being onboard a ship during Sailing.
 
 ### Misc
-- Some code reformating/cleanup
+- Some code reformatting/cleanup
 
 ## [1.4] - 2026-04-13
 
