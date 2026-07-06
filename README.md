@@ -17,6 +17,8 @@ NPCs are automatically classified and coloured by their type:
 | Friendly | Green | NPCs with a 'Talk-to' option (e.g. random towns folk, quest NPCs) |
 | Friendly non-talkers | Pink | NPCs with non-attack interactions that are not 'Talk-to' (e.g. Catch, Shear, Pet) |
 | Shopkeepers | White | NPCs with a 'Trade' interaction option |
+| Animals | Mint | Non-attackable animals detected by interaction or name (e.g. dogs, cats, ducklings, cows). Disabling this toggle hides all listed animals even if they match another category (e.g. Passive), but animals that become hostile (targeting you) will still show as aggressive. |
+| Hunter Mobs | Pale Yellow | Hunter skill creatures with Catch, Net, Trap, Track, or Lasso interactions |
 
 Notes:
 - Examine-only NPCs are hidden by default to avoid false positives (for example, trees/resource-like entities).
@@ -80,4 +82,4 @@ Every category has its own independently configurable:
 
 ---
 
-<sub>Current version: 1.4</sub>
+<sub>Current version: 1.5</sub>

@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.5] - 2026-04-23
+
+### Added
+- Added a dedicated `Animals` NPC category for animals (e.g. dogs, cats, cows, ducklings). Animals are identified by a built-in name list and the presence of a `Pet` interaction option. Disabling the Animals toggle hides all listed animals even if they would match another category (e.g. Passive), while still allowing hostile tags to show if the animal is actively targeting the player or has been observed as aggressive.
+- Added a dedicated `Hunter Mobs` NPC category for Hunter skill creatures with `Catch`, `Net`, `Trap`, `Track`, or `Lasso` interactions.
+- Added whitelist functionality for NPCs and other players (`Included NPC names` and `Included other player names`) to show only those entities you specify.
+
+### Fixed
+- Fixed an issue where nametags would fail to appear for players and NPCs when inside dynamic instances, such as being onboard a ship during Sailing.
+
+### Misc
+- Some code reformating/cleanup
+
 ## [1.4] - 2026-04-13
 
 ### Added

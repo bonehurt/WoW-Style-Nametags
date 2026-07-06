@@ -49,9 +49,9 @@ import net.runelite.client.ui.overlay.OverlayManager;
 )
 public class WoWStyleNametagsPlugin extends Plugin
 {
-    private static final String CURRENT_VERSION = "1.4";
+    private static final String CURRENT_VERSION = "1.5";
     private static final String UPDATE_NOTICE_VERSION_KEY = "updateNoticeVersion";
-    private static final String UPDATE_NOTICE_TEXT = "New 'Shopkeeper' nametag + adjustable font sizes!";
+    private static final String UPDATE_NOTICE_TEXT = "New 'Animals' and 'Hunter Mobs' nametag categories!";
 
     // Interaction-only actions (excludes Examine). Used to distinguish
     // "examine-only" NPCs from NPCs with real interaction options (Talk-to, Bank, etc.).
@@ -82,6 +82,36 @@ public class WoWStyleNametagsPlugin extends Plugin
     private static final String TALK_KEYWORD = "talk";
     private static final String TRADE_KEYWORD = "trade";
     private static final String FISHING_SPOT_KEYWORD = "fishing spot";
+
+    // Non-attackable animals recognised by name for the Animals category.
+    // Checked only when the NPC has no attack option, so aggressive variants
+    // (e.g. Guard dogs) stay in their normal hostile category.
+    private static final Set<String> ANIMAL_NAMES = ImmutableSet.of(
+        "dog", "stray dog", "guard dog", "mutt", "puppy",
+        "cat", "kitten", "hellcat", "lazy cat", "wily cat", "overgrown cat",
+        "overgrown hellcat",
+        "cow", "cow calf", "dairy cow", "bull",
+        "sheep", "ram", "golden sheep",
+        "pig", "piglet",
+        "chicken", "rooster", "hen",
+        "duck", "duckling",
+        "seagull", "pelican", "penguin",
+        "camel",
+        "fox",
+        "rabbit", "bunny",
+        "squirrel",
+        "monkey",
+        "bird", "gull",
+        "toad", "frog",
+        "rat", "mouse",
+        "goat",
+        "horse", "unicorn",
+        "butterfly", "moth",
+        "spider",
+        "snail",
+        "tortoise",
+        "parrot"
+    );
 
     // --- Hover state (written by onMenuEntryAdded / onGameTick, read by overlay) ---
     int hoverIndex = -1;
@@ -137,6 +167,20 @@ public class WoWStyleNametagsPlugin extends Plugin
     boolean attackableTalkableOutlineEnabled;
     Color attackableTalkableOutlineColour;
     int attackableTalkableOutlineThickness;
+
+    boolean enablePets;
+    Color petsColour;
+    int petsFontSize;
+    boolean petsOutlineEnabled;
+    Color petsOutlineColour;
+    int petsOutlineThickness;
+
+    boolean enableHunterMobs;
+    Color hunterMobsColour;
+    int hunterMobsFontSize;
+    boolean hunterMobsOutlineEnabled;
+    Color hunterMobsOutlineColour;
+    int hunterMobsOutlineThickness;
 
     // Players
     boolean enableSelfPlayer;
@@ -205,6 +249,8 @@ public class WoWStyleNametagsPlugin extends Plugin
 
     Set<String> excludedNpcNames;
     Set<String> excludedPlayerNames;
+    Set<String> includedNpcNames;
+    Set<String> includedPlayerNames;
 
     // --- Runtime NPC tracking ---
     private final Map<Integer, NPC> trackedNpcs = new ConcurrentHashMap<>();
@@ -217,6 +263,8 @@ public class WoWStyleNametagsPlugin extends Plugin
     private final Set<Integer> persistentTalkable = ConcurrentHashMap.newKeySet();
     private final Set<Integer> persistentTalkTo = ConcurrentHashMap.newKeySet();
     private final Set<Integer> persistentTradeable = ConcurrentHashMap.newKeySet();
+    private final Set<Integer> persistentPets = ConcurrentHashMap.newKeySet();
+    private final Set<Integer> persistentHunterMobs = ConcurrentHashMap.newKeySet();
     /**
      * NPC <em>composition IDs</em> ({@link NPC#getId()}) confirmed as having no Talk-to
      * option (e.g. examine-only NPCs such as Ducklings). Same lifetime guarantees as
@@ -318,6 +366,8 @@ public class WoWStyleNametagsPlugin extends Plugin
         enableTalkable = config.enableTalkable();
         enableNonTalkInteraction = config.enableNonTalkInteraction();
         enableShopkeepers = config.enableShopkeepers();
+        enablePets = config.enablePets();
+        enableHunterMobs = config.enableHunterMobs();
 
         // Player and follower toggles
         enableSelfPlayer = config.enableSelfPlayer();
@@ -331,6 +381,8 @@ public class WoWStyleNametagsPlugin extends Plugin
         enableOtherPlayersFollowers = config.enableOtherPlayersFollowers();
         excludedNpcNames = parseNameSet(config.excludedNpcNames());
         excludedPlayerNames = parseNameSet(config.excludedPlayerNames());
+        includedNpcNames = parseNameSet(config.includedNpcNames());
+        includedPlayerNames = parseNameSet(config.includedPlayerNames());
 
         // Positioning
         verticalOffset = config.verticalOffset();
@@ -350,6 +402,10 @@ public class WoWStyleNametagsPlugin extends Plugin
         nonTalkInteractionFontSize = config.nonTalkInteractionFontSize();
         shopkeeperColour = config.shopkeeperColour();
         shopkeeperFontSize = config.shopkeeperFontSize();
+        petsColour = config.petsColour();
+        petsFontSize = config.petsFontSize();
+        hunterMobsColour = config.hunterMobsColour();
+        hunterMobsFontSize = config.hunterMobsFontSize();
         selfPlayerColour = config.selfPlayerColour();
         selfPlayerFontSize = config.selfPlayerFontSize();
         otherPlayersColour = config.otherPlayersColour();
@@ -393,6 +449,14 @@ public class WoWStyleNametagsPlugin extends Plugin
         shopkeeperOutlineEnabled = config.shopkeeperOutlineEnabled();
         shopkeeperOutlineColour = config.shopkeeperOutlineColour();
         shopkeeperOutlineThickness = config.shopkeeperOutlineThickness();
+
+        petsOutlineEnabled = config.petsOutlineEnabled();
+        petsOutlineColour = config.petsOutlineColour();
+        petsOutlineThickness = config.petsOutlineThickness();
+
+        hunterMobsOutlineEnabled = config.hunterMobsOutlineEnabled();
+        hunterMobsOutlineColour = config.hunterMobsOutlineColour();
+        hunterMobsOutlineThickness = config.hunterMobsOutlineThickness();
 
         otherPlayersOutlineEnabled = config.otherPlayersOutlineEnabled();
         otherPlayersOutlineColour = config.otherPlayersOutlineColour();
@@ -464,23 +528,28 @@ public class WoWStyleNametagsPlugin extends Plugin
 
         try
         {
-            var wv = client.getTopLevelWorldView();
-            if (wv == null)
-            {
-                return;
-            }
-
             Set<Integer> liveIndexes = new HashSet<>();
-            for (NPC npc : wv.npcs())
-            {
-                if (npc == null)
-                {
-                    continue;
-                }
+            var tlwv = client.getTopLevelWorldView();
+            var lp = client.getLocalPlayer();
+            var pwv = lp != null ? lp.getWorldView() : null;
 
-                int index = npc.getIndex();
-                liveIndexes.add(index);
-                trackedNpcs.put(index, npc);
+            java.util.List<net.runelite.api.WorldView> viewsToSync = new java.util.ArrayList<>();
+            if (tlwv != null) viewsToSync.add(tlwv);
+            if (pwv != null && pwv != tlwv) viewsToSync.add(pwv);
+
+            for (var wv : viewsToSync)
+            {
+                for (NPC npc : wv.npcs())
+                {
+                    if (npc == null)
+                    {
+                        continue;
+                    }
+
+                    int index = npc.getIndex();
+                    liveIndexes.add(index);
+                    trackedNpcs.put(index, npc);
+                }
             }
 
             trackedNpcs.keySet().removeIf(index -> !liveIndexes.contains(index));
@@ -526,6 +595,16 @@ public class WoWStyleNametagsPlugin extends Plugin
     public boolean isPlayerNameExcluded(String playerName)
     {
         return excludedPlayerNames != null && excludedPlayerNames.contains(normalizeName(playerName));
+    }
+
+    public boolean isNpcNameIncluded(String npcName)
+    {
+        return includedNpcNames == null || includedNpcNames.isEmpty() || includedNpcNames.contains(normalizeName(npcName));
+    }
+
+    public boolean isPlayerNameIncluded(String playerName)
+    {
+        return includedPlayerNames == null || includedPlayerNames.isEmpty() || includedPlayerNames.contains(normalizeName(playerName));
     }
 
     public void rememberAggressiveNpcType(NPC npc)
@@ -1198,6 +1277,14 @@ public class WoWStyleNametagsPlugin extends Plugin
                     {
                         persistentTradeable.add(compId);
                     }
+                    if (isPetInteractionOption(op))
+                    {
+                        persistentPets.add(compId);
+                    }
+                    if (isHunterInteractionOption(op))
+                    {
+                        persistentHunterMobs.add(compId);
+                    }
                     if (isAttackInteractionOption(op))
                     {
                         cacheAttackability(compId, true);
@@ -1342,6 +1429,14 @@ public class WoWStyleNametagsPlugin extends Plugin
                             {
                                 withTrade.add(compId);
                             }
+                            if (isPetInteractionOption(opt))
+                            {
+                                persistentPets.add(compId);
+                            }
+                            if (isHunterInteractionOption(opt))
+                            {
+                                persistentHunterMobs.add(compId);
+                            }
                             if (isFriendlyInteractionOption(opt))
                             {
                                 withFriendly.add(compId);
@@ -1430,6 +1525,14 @@ public class WoWStyleNametagsPlugin extends Plugin
                         if (isTradeInteractionOption(opt))
                         {
                             persistentTradeable.add(npc.getId());
+                        }
+                        if (isPetInteractionOption(opt))
+                        {
+                            persistentPets.add(npc.getId());
+                        }
+                        if (isHunterInteractionOption(opt))
+                        {
+                            persistentHunterMobs.add(npc.getId());
                         }
                         if (isFriendlyInteractionOption(opt))
                         {
@@ -1603,5 +1706,177 @@ public class WoWStyleNametagsPlugin extends Plugin
         // Treat any non-attack interaction as "friendly" so NPCs like pickpocket/catch
         // are shown under the friendly category rather than being permanently culled.
         return !normalized.contains(ATTACK_KEYWORD);
+    }
+
+    public boolean hasPetOption(NPC npc)
+    {
+        if (npc == null)
+        {
+            return false;
+        }
+
+        int compId = npc.getId();
+        if (persistentPets.contains(compId))
+        {
+            return true;
+        }
+
+        // Check composition actions for a "Pet" interaction.
+        net.runelite.api.NPCComposition composition = npc.getComposition();
+        if (composition != null && hasPetInteraction(composition.getActions()))
+        {
+            persistentPets.add(compId);
+            return true;
+        }
+
+        net.runelite.api.NPCComposition transformed = npc.getTransformedComposition();
+        if (transformed != null && hasPetInteraction(transformed.getActions()))
+        {
+            persistentPets.add(compId);
+            return true;
+        }
+
+        // Check live menu entries for a "Pet" interaction.
+        try
+        {
+            MenuEntry[] entries = client.getMenu().getMenuEntries();
+            if (entries != null)
+            {
+                for (MenuEntry e : entries)
+                {
+                    if (!menuEntryTargetsNpc(e, npc)) continue;
+                    if (!NPC_INTERACTION_ACTIONS.contains(e.getType().getId())) continue;
+                    if (isPetInteractionOption(e.getOption()))
+                    {
+                        persistentPets.add(compId);
+                        return true;
+                    }
+                }
+            }
+        }
+        catch (Exception ignored) {}
+
+        // Fall back to name-based matching for common non-attackable animals.
+        String name = sanitizeEntityName(npc.getName());
+        if (name != null && ANIMAL_NAMES.contains(name.toLowerCase(Locale.ROOT)))
+        {
+            persistentPets.add(compId);
+            return true;
+        }
+
+        return false;
+    }
+
+    public boolean hasHunterOption(NPC npc)
+    {
+        if (npc == null)
+        {
+            return false;
+        }
+
+        int compId = npc.getId();
+        if (persistentHunterMobs.contains(compId))
+        {
+            return true;
+        }
+
+        net.runelite.api.NPCComposition composition = npc.getComposition();
+        if (composition != null && hasHunterInteraction(composition.getActions()))
+        {
+            persistentHunterMobs.add(compId);
+            return true;
+        }
+
+        net.runelite.api.NPCComposition transformed = npc.getTransformedComposition();
+        if (transformed != null && hasHunterInteraction(transformed.getActions()))
+        {
+            persistentHunterMobs.add(compId);
+            return true;
+        }
+
+        try
+        {
+            MenuEntry[] entries = client.getMenu().getMenuEntries();
+            if (entries != null)
+            {
+                for (MenuEntry e : entries)
+                {
+                    if (!menuEntryTargetsNpc(e, npc)) continue;
+                    if (!NPC_INTERACTION_ACTIONS.contains(e.getType().getId())) continue;
+                    if (isHunterInteractionOption(e.getOption()))
+                    {
+                        persistentHunterMobs.add(compId);
+                        return true;
+                    }
+                }
+            }
+        }
+        catch (Exception ignored) {}
+
+        return false;
+    }
+
+    private boolean hasPetInteraction(String[] actions)
+    {
+        if (actions == null)
+        {
+            return false;
+        }
+
+        for (String action : actions)
+        {
+            if (isPetInteractionOption(action))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean hasHunterInteraction(String[] actions)
+    {
+        if (actions == null)
+        {
+            return false;
+        }
+
+        for (String action : actions)
+        {
+            if (isHunterInteractionOption(action))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean isPetInteractionOption(String option)
+    {
+        if (option == null)
+        {
+            return false;
+        }
+
+        String normalized = option.trim().toLowerCase(Locale.ROOT);
+        return !normalized.isEmpty() && normalized.contains("pet");
+    }
+
+    private boolean isHunterInteractionOption(String option)
+    {
+        if (option == null)
+        {
+            return false;
+        }
+
+        String normalized = option.trim().toLowerCase(Locale.ROOT);
+        return !normalized.isEmpty() && (
+               normalized.contains("catch") || 
+               normalized.contains("net") || 
+               normalized.contains("trap") || 
+               normalized.contains("track") || 
+               normalized.contains("lasso")
+        );
     }
 }

@@ -100,12 +100,19 @@ public class WoWStyleNametagsOverlay extends Overlay
         }
 
         Map<WorldPoint, Integer> playerCounts = new HashMap<>();
+        java.util.List<net.runelite.api.WorldView> viewsToSync = new java.util.ArrayList<>();
+        var tlwv = client.getTopLevelWorldView();
+        var pwv = localPlayer.getWorldView();
+        if (tlwv != null) viewsToSync.add(tlwv);
+        if (pwv != null && pwv != tlwv) viewsToSync.add(pwv);
+
         try
         {
-            var wv = client.getTopLevelWorldView();
-            if (wv != null)
+            for (var wv : viewsToSync)
             {
-                for (var p : wv.players())
+                if (wv != null)
+                {
+                    for (var p : wv.players())
                 {
                     if (p != null)
                     {
@@ -116,6 +123,7 @@ public class WoWStyleNametagsOverlay extends Overlay
                             plugin.visiblePlayerTiles.add(wp);
                         }
                     }
+                }
                 }
             }
         }
@@ -141,16 +149,18 @@ public class WoWStyleNametagsOverlay extends Overlay
         // --- Collect player entries ---
         try
         {
-            var wv = client.getTopLevelWorldView();
-            if (wv != null)
+            for (var wv : viewsToSync)
             {
-                for (var p : wv.players())
+                if (wv != null)
+                {
+                    for (var p : wv.players())
                 {
                     TagEntry entry = collectPlayerEntry(graphics, p, localPlayer, localWp);
                     if (entry != null)
                     {
                         entries.add(entry);
                     }
+                }
                 }
             }
         }
@@ -304,6 +314,11 @@ public class WoWStyleNametagsOverlay extends Overlay
             return null;
         }
 
+        if (!plugin.isNpcNameIncluded(text))
+        {
+            return null;
+        }
+
         if (plugin.isSuppressedResourceNpc(npc, text))
         {
             return null;
@@ -356,6 +371,10 @@ public class WoWStyleNametagsOverlay extends Overlay
             boolean talk   = plugin.hasTalkOption(npc);
             boolean nonTalkInteraction = plugin.hasNonTalkInteractionOption(npc);
 
+            // Pre-compute animal/hunter status for fallback use below.
+            boolean isAnimal = plugin.hasPetOption(npc);
+            boolean isHunter = plugin.hasHunterOption(npc);
+
             if (trade)
             {
                 if (!plugin.enableShopkeepers) return null;
@@ -369,8 +388,6 @@ public class WoWStyleNametagsOverlay extends Overlay
             {
 
             // Actively targeting the player — definitively aggressive regardless of level.
-            // This catches always-aggressive NPCs (e.g. Lizardmen) that would otherwise
-            // fall below the 2x threshold and show as passive.
             boolean targetingPlayer = false;
             try
             {
@@ -385,13 +402,15 @@ public class WoWStyleNametagsOverlay extends Overlay
 
             boolean observedAggressiveType = plugin.wasNpcTypeObservedAggressive(npc);
 
-            // Passive: attack-only NPCs that are NOT currently targeting the player AND whose
-            // level does not exceed twice the player's combat level.  This mirrors the OSRS
-            // aggression rule (NPCs stop attacking once the player's level is over double
-            // theirs), so only truly out-of-league NPCs show red.
-            // NPCs that are both attackable AND have either Talk-to or another non-attack
-            // interaction (e.g. Man/Woman, catchable/pettable/shearable NPCs) are Neutral
-            // regardless of level.
+            // If the NPC is a recognised animal and the Animals category is
+            // disabled, hide it — unless it is actively hostile (targeting the
+            // player or observed aggressive), in which case it should still
+            // show under its combat category.
+            if (isAnimal && !plugin.enablePets && !targetingPlayer && !observedAggressiveType)
+            {
+                return null;
+            }
+
             boolean passive = false;
             try
             {
@@ -407,65 +426,143 @@ public class WoWStyleNametagsOverlay extends Overlay
             }
             catch (Exception ignored) {}
 
+            // Tracks whether the NPC's normal category was disabled so we can
+            // fall back to the animal/pet category if the name matches.
+            boolean categoryDisabled = false;
+
             if (attack && (talk || nonTalkInteraction))
             {
                 if (observedAggressiveType)
                 {
-                    if (!plugin.enableAttackable) return null;
-                    colour           = plugin.attackableColour;
-                    outlineEnabled   = plugin.attackableOutlineEnabled;
-                    outlineColour    = plugin.attackableOutlineColour;
-                    outlineThickness = plugin.attackableOutlineThickness;
-                    fontSize         = plugin.attackableFontSize;
+                    if (!plugin.enableAttackable) { categoryDisabled = true; }
+                    else
+                    {
+                        colour           = plugin.attackableColour;
+                        outlineEnabled   = plugin.attackableOutlineEnabled;
+                        outlineColour    = plugin.attackableOutlineColour;
+                        outlineThickness = plugin.attackableOutlineThickness;
+                        fontSize         = plugin.attackableFontSize;
+                    }
                 }
                 else
                 {
-                    if (!plugin.enableAttackableTalkable) return null;
-                    colour           = plugin.attackableTalkableColour;
-                    outlineEnabled   = plugin.attackableTalkableOutlineEnabled;
-                    outlineColour    = plugin.attackableTalkableOutlineColour;
-                    outlineThickness = plugin.attackableTalkableOutlineThickness;
-                    fontSize         = plugin.attackableTalkableFontSize;
+                    if (!plugin.enableAttackableTalkable) { categoryDisabled = true; }
+                    else
+                    {
+                        colour           = plugin.attackableTalkableColour;
+                        outlineEnabled   = plugin.attackableTalkableOutlineEnabled;
+                        outlineColour    = plugin.attackableTalkableOutlineColour;
+                        outlineThickness = plugin.attackableTalkableOutlineThickness;
+                        fontSize         = plugin.attackableTalkableFontSize;
+                    }
                 }
             }
             else if (attack)
             {
                 if (passive)
                 {
-                    if (!plugin.enablePassive) return null;
-                    colour           = plugin.passiveColour;
-                    outlineEnabled   = plugin.passiveOutlineEnabled;
-                    outlineColour    = plugin.passiveOutlineColour;
-                    outlineThickness = plugin.passiveOutlineThickness;
-                    fontSize         = plugin.passiveFontSize;
+                    // Animals in the name list are never a real combat threat,
+                    // so prefer the Animals category over Passive when enabled.
+                    if (isAnimal && plugin.enablePets)
+                    {
+                        colour           = plugin.petsColour;
+                        outlineEnabled   = plugin.petsOutlineEnabled;
+                        outlineColour    = plugin.petsOutlineColour;
+                        outlineThickness = plugin.petsOutlineThickness;
+                        fontSize         = plugin.petsFontSize;
+                    }
+                    else if (!plugin.enablePassive) { categoryDisabled = true; }
+                    else
+                    {
+                        colour           = plugin.passiveColour;
+                        outlineEnabled   = plugin.passiveOutlineEnabled;
+                        outlineColour    = plugin.passiveOutlineColour;
+                        outlineThickness = plugin.passiveOutlineThickness;
+                        fontSize         = plugin.passiveFontSize;
+                    }
                 }
                 else
                 {
-                    if (!plugin.enableAttackable) return null;
-                    colour           = plugin.attackableColour;
-                    outlineEnabled   = plugin.attackableOutlineEnabled;
-                    outlineColour    = plugin.attackableOutlineColour;
-                    outlineThickness = plugin.attackableOutlineThickness;
-                    fontSize         = plugin.attackableFontSize;
+                    if (!plugin.enableAttackable) { categoryDisabled = true; }
+                    else
+                    {
+                        colour           = plugin.attackableColour;
+                        outlineEnabled   = plugin.attackableOutlineEnabled;
+                        outlineColour    = plugin.attackableOutlineColour;
+                        outlineThickness = plugin.attackableOutlineThickness;
+                        fontSize         = plugin.attackableFontSize;
+                    }
                 }
             }
             else if (talk)
             {
-                if (!plugin.enableTalkable) return null;
-                colour           = plugin.talkableColour;
-                outlineEnabled   = plugin.talkableOutlineEnabled;
-                outlineColour    = plugin.talkableOutlineColour;
-                outlineThickness = plugin.talkableOutlineThickness;
-                fontSize         = plugin.talkableFontSize;
+                if (!plugin.enableTalkable) { categoryDisabled = true; }
+                else
+                {
+                    colour           = plugin.talkableColour;
+                    outlineEnabled   = plugin.talkableOutlineEnabled;
+                    outlineColour    = plugin.talkableOutlineColour;
+                    outlineThickness = plugin.talkableOutlineThickness;
+                    fontSize         = plugin.talkableFontSize;
+                }
             }
             else if (nonTalkInteraction)
             {
-                if (!plugin.enableNonTalkInteraction) return null;
-                colour           = plugin.nonTalkInteractionColour;
-                outlineEnabled   = plugin.nonTalkInteractionOutlineEnabled;
-                outlineColour    = plugin.nonTalkInteractionOutlineColour;
-                outlineThickness = plugin.nonTalkInteractionOutlineThickness;
-                fontSize         = plugin.nonTalkInteractionFontSize;
+                if (isAnimal)
+                {
+                    if (!plugin.enablePets) return null;
+                    colour           = plugin.petsColour;
+                    outlineEnabled   = plugin.petsOutlineEnabled;
+                    outlineColour    = plugin.petsOutlineColour;
+                    outlineThickness = plugin.petsOutlineThickness;
+                    fontSize         = plugin.petsFontSize;
+                }
+                else if (isHunter)
+                {
+                    if (!plugin.enableHunterMobs) return null;
+                    colour           = plugin.hunterMobsColour;
+                    outlineEnabled   = plugin.hunterMobsOutlineEnabled;
+                    outlineColour    = plugin.hunterMobsOutlineColour;
+                    outlineThickness = plugin.hunterMobsOutlineThickness;
+                    fontSize         = plugin.hunterMobsFontSize;
+                }
+                else
+                {
+                    if (!plugin.enableNonTalkInteraction) return null;
+                    colour           = plugin.nonTalkInteractionColour;
+                    outlineEnabled   = plugin.nonTalkInteractionOutlineEnabled;
+                    outlineColour    = plugin.nonTalkInteractionOutlineColour;
+                    outlineThickness = plugin.nonTalkInteractionOutlineThickness;
+                    fontSize         = plugin.nonTalkInteractionFontSize;
+                }
+            }
+            else if (isAnimal)
+            {
+                // No interaction at all — name-matched animal
+                if (!plugin.enablePets) return null;
+                colour           = plugin.petsColour;
+                outlineEnabled   = plugin.petsOutlineEnabled;
+                outlineColour    = plugin.petsOutlineColour;
+                outlineThickness = plugin.petsOutlineThickness;
+                fontSize         = plugin.petsFontSize;
+            }
+
+            // If the NPC's normal category was disabled but it matches the
+            // animal name list, show it under Animals as a fallback.
+            if (categoryDisabled && colour == null)
+            {
+                if (isAnimal && plugin.enablePets)
+                {
+                    colour           = plugin.petsColour;
+                    outlineEnabled   = plugin.petsOutlineEnabled;
+                    outlineColour    = plugin.petsOutlineColour;
+                    outlineThickness = plugin.petsOutlineThickness;
+                    fontSize         = plugin.petsFontSize;
+                }
+                else
+                {
+                    return null;
+                }
             }
             }
         }
@@ -539,6 +636,11 @@ public class WoWStyleNametagsOverlay extends Overlay
         else
         {
             if (plugin.isPlayerNameExcluded(name))
+            {
+                return null;
+            }
+
+            if (!plugin.isPlayerNameIncluded(name))
             {
                 return null;
             }
