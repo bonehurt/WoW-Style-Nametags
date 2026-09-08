@@ -82,7 +82,7 @@ Optionally display combat levels next to players and NPCs.
 ### NPC max hit display
 Optionally display the maximum damage hit for NPCs on their nametag.
 
-![More info than ever!](screenshots\MaxHitnLvl.png)
+![More info than ever!](screenshots/MaxHitnLvl.png)
 
 ### Colour & outline customisation
 Every category has its own independently configurable:
