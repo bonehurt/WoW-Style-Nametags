@@ -18,6 +18,7 @@ import net.runelite.api.MenuEntry;
 import net.runelite.api.NPC;
 import net.runelite.api.Player;
 import net.runelite.api.Renderable;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.BeforeRender;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.MenuEntryAdded;
@@ -43,7 +44,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 @PluginDescriptor(name = "WoW-Style Nametags", description = "Overlays NPC/Player names above their heads, with optional color-coding and outlines & other options similar to World of Warcraft.", tags = {
         "NPC", "names", "overlay", "WoW", "nametags", "nametag", "max hit", "level" })
 public class WoWStyleNametagsPlugin extends Plugin {
-    private static final String CURRENT_VERSION = "2.0";
+    private static final String CURRENT_VERSION = "2.1";
     private static final String UPDATE_NOTICE_VERSION_KEY = "updateNoticeVersion";
     private static final String UPDATE_NOTICE_TEXT = "Added 'Max nametags per tile', 'Combat level', 'Max hit' & 'Hide boss nametags' settings + Aggro tweaks + some bugfixes!";
     private boolean updateNoticePending = false;
@@ -259,6 +260,8 @@ public class WoWStyleNametagsPlugin extends Plugin {
     // --- Runtime NPC tracking ---
     private final Map<Integer, NPC> trackedNpcs = new ConcurrentHashMap<>();
     private final Set<Actor> visibleActorsThisFrame = ConcurrentHashMap.newKeySet();
+    final Set<WorldPoint> stackedTiles = ConcurrentHashMap.newKeySet();
+    final Set<WorldPoint> visiblePlayerTiles = ConcurrentHashMap.newKeySet();
     private NpcClassifier npcClassifier;
 
     int overheadIconOffset;
@@ -523,15 +526,14 @@ public class WoWStyleNametagsPlugin extends Plugin {
         otherPlayersFollowerOutlineThickness = config.otherPlayersFollowerOutlineThickness();
     }
 
-    // Registers scene render callback only when entity hiders need to be respected.
+    // Registers scene render callback to track which actor models are rendered on
+    // top
+    // and honor entity hiders.
     private void updateRenderCallbackRegistration() {
         renderCallbackManager.unregister(visibilityTracker);
         visibleActorsThisFrame.clear();
         sawSceneActorThisFrame = false;
-
-        if (respectEntityHiders) {
-            renderCallbackManager.register(visibilityTracker);
-        }
+        renderCallbackManager.register(visibilityTracker);
     }
 
     // Clears frame and per-scene caches on world/scene transitions.
@@ -541,6 +543,8 @@ public class WoWStyleNametagsPlugin extends Plugin {
         hoverTarget = null;
         visibleActorsThisFrame.clear();
         sawSceneActorThisFrame = false;
+        stackedTiles.clear();
+        visiblePlayerTiles.clear();
         if (npcClassifier != null) {
             npcClassifier.clearTransientSceneState();
         }
@@ -687,7 +691,16 @@ public class WoWStyleNametagsPlugin extends Plugin {
                 return true;
             }
 
-            return visibleActorsThisFrame.contains(actor);
+            if (!sawSceneActorThisFrame || visibleActorsThisFrame.contains(actor)) {
+                return true;
+            }
+
+            WorldPoint wp = ((Player) actor).getWorldLocation();
+            if (wp != null && stackedTiles.contains(wp) && visiblePlayerTiles.contains(wp)) {
+                return true;
+            }
+
+            return false;
         } else {
             // For NPCs, respect entity hiders as before
             if (!respectEntityHiders) {
@@ -808,13 +821,15 @@ public class WoWStyleNametagsPlugin extends Plugin {
     public void onBeforeRender(BeforeRender event) {
         visibleActorsThisFrame.clear();
         sawSceneActorThisFrame = false;
+        stackedTiles.clear();
+        visiblePlayerTiles.clear();
     }
 
     // Re-evaluates render callback registration if an external plugin is enabled or
     // disabled.
     @Subscribe
     public void onPluginChanged(PluginChanged event) {
-        if (event.getPlugin() == this || !respectEntityHiders) {
+        if (event.getPlugin() == this) {
             return;
         }
 

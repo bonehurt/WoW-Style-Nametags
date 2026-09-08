@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.IntFunction;
+import java.util.function.Predicate;
 import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
 
@@ -20,23 +21,22 @@ public final class NametagLayoutManager {
     }
 
     /**
-     * Filters players by grouping them per tile and keeping only up to
-     * {@code maxPerTile}.
-     * Prioritizes the local player first, then top-rendered players (higher ID
-     * drawn on top).
+     * Groups players by their world tile coordinate and sorts each tile's occupants:
+     * 1. Local player first.
+     * 2. Visibly rendered players (rendered by the engine this frame).
+     * 3. Descending player ID (higher ID rendered on top).
      */
-    public static List<Player> filterPlayersPerTile(Iterable<? extends Player> players, Player localPlayer,
-            int maxPerTile) {
+    public static Map<WorldPoint, List<Player>> groupAndSortPlayersByTile(
+            Iterable<? extends Player> players,
+            Player localPlayer,
+            Predicate<Player> isVisible) {
         if (players == null) {
-            return Collections.emptyList();
+            return Collections.emptyMap();
         }
 
-        // Group all visible players by their world tile coordinate
         Map<WorldPoint, List<Player>> playersByTile = new HashMap<>();
-        List<Player> allPlayers = new ArrayList<>();
         for (Player p : players) {
             if (p != null) {
-                allPlayers.add(p);
                 WorldPoint wp = p.getWorldLocation();
                 if (wp != null) {
                     playersByTile.computeIfAbsent(wp, k -> new ArrayList<>()).add(p);
@@ -44,26 +44,50 @@ public final class NametagLayoutManager {
             }
         }
 
-        if (maxPerTile <= 0) {
-            return allPlayers;
-        }
-
-        List<Player> filtered = new ArrayList<>();
         for (List<Player> tilePlayers : playersByTile.values()) {
             if (tilePlayers.size() > 1) {
-                // Sort tile occupants: local player first, then descending player ID (higher
-                // rendered on top)
                 tilePlayers.sort((p1, p2) -> {
                     boolean s1 = p1.equals(localPlayer);
                     boolean s2 = p2.equals(localPlayer);
                     if (s1 != s2) {
                         return s1 ? -1 : 1;
                     }
+                    if (isVisible != null) {
+                        boolean v1 = isVisible.test(p1);
+                        boolean v2 = isVisible.test(p2);
+                        if (v1 != v2) {
+                            return v1 ? -1 : 1;
+                        }
+                    }
                     return Integer.compare(p2.getId(), p1.getId());
                 });
             }
+        }
 
-            // Retain up to the configured limit per tile
+        return playersByTile;
+    }
+
+    /**
+     * Filters players by grouping them per tile and keeping only up to
+     * {@code maxPerTile}.
+     */
+    public static List<Player> filterPlayersPerTile(Iterable<? extends Player> players, Player localPlayer,
+            int maxPerTile) {
+        if (players == null) {
+            return Collections.emptyList();
+        }
+
+        Map<WorldPoint, List<Player>> playersByTile = groupAndSortPlayersByTile(players, localPlayer, null);
+        if (maxPerTile <= 0) {
+            List<Player> allPlayers = new ArrayList<>();
+            for (List<Player> tilePlayers : playersByTile.values()) {
+                allPlayers.addAll(tilePlayers);
+            }
+            return allPlayers;
+        }
+
+        List<Player> filtered = new ArrayList<>();
+        for (List<Player> tilePlayers : playersByTile.values()) {
             int count = 0;
             for (Player p : tilePlayers) {
                 filtered.add(p);

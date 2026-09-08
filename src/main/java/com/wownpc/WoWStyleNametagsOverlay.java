@@ -13,6 +13,7 @@ import java.awt.font.TextLayout;
 import java.awt.geom.AffineTransform;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import net.runelite.api.Actor;
 import net.runelite.api.Client;
 import net.runelite.api.NPC;
@@ -67,18 +68,43 @@ public class WoWStyleNametagsOverlay extends Overlay {
         }
 
         // --- Collect player entries ---
+        int maxPerTile = plugin.maxNametagsPerTile;
         try {
+            plugin.stackedTiles.clear();
+            plugin.visiblePlayerTiles.clear();
+
             for (var wv : viewsToSync) {
                 if (wv == null) {
                     continue;
                 }
 
-                List<Player> players = NametagLayoutManager.filterPlayersPerTile(wv.players(), localPlayer,
-                        plugin.maxNametagsPerTile);
-                for (Player p : players) {
-                    TagEntry entry = collectPlayerEntry(graphics, p, localPlayer, localWp);
-                    if (entry != null) {
-                        entries.add(entry);
+                Map<WorldPoint, List<Player>> playersByTile = NametagLayoutManager.groupAndSortPlayersByTile(
+                        wv.players(), localPlayer, plugin::isActorVisibleThisFrame);
+
+                // Populate stacked tiles and visible player tiles for client-side model stacking detection
+                for (Map.Entry<WorldPoint, List<Player>> entry : playersByTile.entrySet()) {
+                    if (entry.getValue().size() > 1) {
+                        plugin.stackedTiles.add(entry.getKey());
+                    }
+                    for (Player p : entry.getValue()) {
+                        if (plugin.isActorVisibleThisFrame(p)) {
+                            plugin.visiblePlayerTiles.add(entry.getKey());
+                            break;
+                        }
+                    }
+                }
+
+                for (List<Player> tilePlayers : playersByTile.values()) {
+                    int tileCount = 0;
+                    for (Player p : tilePlayers) {
+                        TagEntry entry = collectPlayerEntry(graphics, p, localPlayer, localWp);
+                        if (entry != null) {
+                            entries.add(entry);
+                            tileCount++;
+                            if (maxPerTile > 0 && tileCount >= maxPerTile) {
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -227,30 +253,27 @@ public class WoWStyleNametagsOverlay extends Overlay {
                 fontSize = plugin.shopkeeperFontSize;
             } else {
 
-                // Actively targeting the player — definitively aggressive regardless of level.
+                // Actively targeting the player (or player targeting the NPC in combat)
                 boolean targetingPlayer = false;
                 try {
-                    targetingPlayer = npc.getInteracting() != null
-                            && npc.getInteracting().equals(localPlayer);
-                    if (targetingPlayer && classifier != null) {
-                        classifier.rememberAggressiveNpcType(npc);
-                    }
+                    targetingPlayer = (npc.getInteracting() != null && npc.getInteracting().equals(localPlayer))
+                            || (localPlayer.getInteracting() != null && localPlayer.getInteracting().equals(npc));
                 } catch (Exception ignored) {
                 }
 
-                boolean observedAggressiveType = classifier != null && classifier.wasNpcTypeObservedAggressive(npc);
+                boolean isAggressive = targetingPlayer || (classifier != null && classifier.isAlwaysAggressive(npc));
 
                 // If the NPC is a recognised animal and the Animals category is
                 // disabled, hide it — unless it is actively hostile (targeting the
-                // player or observed aggressive), in which case it should still
+                // player or always aggressive), in which case it should still
                 // show under its combat category.
-                if (isAnimal && !plugin.enablePets && !targetingPlayer && !observedAggressiveType) {
+                if (isAnimal && !plugin.enablePets && !isAggressive) {
                     return null;
                 }
 
                 boolean passive = false;
                 try {
-                    if (attack && !talk && !nonTalkInteraction && !targetingPlayer && !observedAggressiveType) {
+                    if (attack && !talk && !nonTalkInteraction && !isAggressive) {
                         int npcLevel = npc.getCombatLevel();
                         int playerLevel = localPlayer.getCombatLevel();
                         if (classifier != null && classifier.isInherentlyPassive(npc)) {
@@ -267,7 +290,7 @@ public class WoWStyleNametagsOverlay extends Overlay {
                 boolean categoryDisabled = false;
 
                 if (attack && (talk || nonTalkInteraction)) {
-                    if (observedAggressiveType) {
+                    if (isAggressive) {
                         if (!plugin.enableAttackable) {
                             categoryDisabled = true;
                         } else {
