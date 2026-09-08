@@ -28,12 +28,12 @@ dependencies {
 }
 
 group = 'com.wownpc'
-version = '1.5'
+version = '2.0'
 
 tasks.withType(JavaCompile).configureEach {
 	options.encoding = 'UTF-8'
 	options.release.set(11)
-	options.compilerArgs << '-Xlint:deprecation'
+	options.compilerArgs << '-Xlint:all' << '-Xlint:-processing'
 }
 
 tasks.register('run', JavaExec) {

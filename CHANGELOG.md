@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.0] - 2026-08-09
+
+### Added
+- Added a `Max nametags per tile` setting (default: 1) to limit the number of player nametags displayed on the exact same tile, prioritizing your own player and the top visually rendered player to reduce nametag clutter and FPS drops in crowded areas.
+- Added optional combat level display for players and NPCs (default: off). Includes a format selector, position selector, a configurable `Minimum Combat Level` threshold, an optional "In Combat Only" filter, configurable colouring (either matching the entity's nametag colour or using a custom global colour), and an independent outline colour option when "Match Name Colour" is disabled.
+- Added optional NPC Max Hit display (default: off) powered asynchronously by the OSRS Wiki monster database. Includes custom format options, position selector, a configurable `Minimum Max Hit` threshold, an "In Combat Only" toggle, matching nametag colour or custom max hit colour, and an outline colour setting.
+- Added independent `Hide Bosses`, `Hide Boss Minions`, and `Hide Quest Bosses` filters (default: off) to omit nametags for primary boss entities, encounter minions/adds, and quest encounter bosses.
+
+### Fixed
+- Fixed an issue where nametags were displayed for players hidden by entity hider plugins (such as Dynamic Entity Hider & Auto Entity Hider) when multiple players were stacked on the same tile (e.g. Guardians of the Rift & Grand Exchange).
+- Fixed Falador guards and similar NPCs erroneously switching to the "Friendly non-talker" magenta colour when right-clicked or interacted with due to menu action classification overriding attackability.
+- Fixed attackable animals (such as unicorns, cows, chickens, and bears) being incorrectly classified under the "Animals" category.
+- Fixed Hunter mobs without direct right-click actions (such as kebbits and snare birds) not displaying under the "Hunter Mobs" category.
+
+### Changes
+- Reclassified roaming and POH Menagerie pets under the Followers category instead of generic Friendly NPCs or Non-Attackable Animals.
+- Clarified Chat Channel player relationship settings to explicitly include "(Friends Chat)" in names and descriptions.
+- Adjusted some agression classifications for 'always agressive' mobs so there is less surprise for players.
+- Code refactoring and modulisation.
+
 ## [1.5] - 2026-07-06
 
 ### Added
