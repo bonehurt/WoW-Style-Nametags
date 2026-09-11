@@ -21,7 +21,8 @@ public final class NametagLayoutManager {
     }
 
     /**
-     * Groups players by their world tile coordinate and sorts each tile's occupants:
+     * Groups players by their world tile coordinate and sorts each tile's
+     * occupants:
      * 1. Local player first.
      * 2. Visibly rendered players (rendered by the engine this frame).
      * 3. Descending player ID (higher ID rendered on top).

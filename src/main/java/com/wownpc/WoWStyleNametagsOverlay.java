@@ -81,7 +81,8 @@ public class WoWStyleNametagsOverlay extends Overlay {
                 Map<WorldPoint, List<Player>> playersByTile = NametagLayoutManager.groupAndSortPlayersByTile(
                         wv.players(), localPlayer, plugin::isActorVisibleThisFrame);
 
-                // Populate stacked tiles and visible player tiles for client-side model stacking detection
+                // Populate stacked tiles and visible player tiles for client-side model
+                // stacking detection
                 for (Map.Entry<WorldPoint, List<Player>> entry : playersByTile.entrySet()) {
                     if (entry.getValue().size() > 1) {
                         plugin.stackedTiles.add(entry.getKey());
@@ -206,16 +207,17 @@ public class WoWStyleNametagsOverlay extends Overlay {
         int outlineThickness = 2;
         int fontSize = 16;
 
-        // Follower pet check (active follower or recognized pet like in POH Menagerie)
-        boolean follower = (npc.getComposition() != null && npc.getComposition().isFollower())
-                || (classifier != null && classifier.isPet(npc));
+        // Follower pet check (active follower or another player's follower)
+        Actor owner = npc.getInteracting();
+        boolean myFollower = (client != null && npc.equals(client.getFollower()))
+                || (owner != null && owner.equals(localPlayer));
+
+        boolean otherFollower = !myFollower && ((owner instanceof Player)
+                || (npc.getComposition() != null && npc.getComposition().isFollower()));
+
+        boolean follower = myFollower || otherFollower;
 
         if (follower) {
-            Actor owner = npc.getInteracting();
-            boolean myFollower = (client != null && npc.equals(client.getFollower()))
-                    || (owner != null && owner.equals(localPlayer))
-                    || (owner == null);
-
             if (myFollower) {
                 if (!plugin.enableMyFollowers)
                     return null;

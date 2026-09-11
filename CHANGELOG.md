@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.1] - 2026-08-09
+## [2.1.1] - 2026-09-11
 
 ### Added
 - Added a `Max nametags per tile` setting (default: 1) to limit the number of player nametags displayed on the exact same tile, prioritizing your own player and the top visually rendered player to reduce nametag clutter and FPS drops in crowded areas.

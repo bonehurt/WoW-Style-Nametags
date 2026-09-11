@@ -193,22 +193,23 @@ public class NpcClassifier {
     private static final Set<String> PET_NAMES = ImmutableSet.of(
             // Boss Pets
             "abyssal orphan", "baby mole", "baron", "butch", "callisto cub", "cerberus pup", "chompy chick",
-            "corrupted youngllef", "dark core", "general ahrim", "general graardor jr.", "ikkle hydra",
+            "corporeal critter", "corrupted youngllef", "dark core", "general ahrim", "general graardor jr.",
+            "ikkle hydra",
             "jal-nib-rek", "kalphite princess", "lil' creator", "lil' zik", "lil'viathan", "little nightmare",
             "midnight", "muphin", "nexling", "noon", "olmlet", "pet chaos elemental", "pet dagannoth prime",
             "pet dagannoth rex", "pet dagannoth supreme", "pet dark core", "pet general graardor", "pet kree'arra",
             "pet k'ril tsutsaroth", "pet kraken", "pet penance queen", "pet smoke devil", "pet snakeling",
-            "pet zilyana", "prince black dragon", "scurry", "skotizo", "skotos", "smolcano", "smokey", "sraracha",
+            "pet zilyana", "prince black dragon", "scurry", "skotos", "smolcano", "smokey", "sraracha",
             "tiny tempor", "tumeken's guardian", "elidinis' guardian", "tzrek-jad", "tzrek-zuk", "venenatis spiderling",
             "vet'ion jr.", "vorki", "wisp", "youngllef", "herbi", "hellpuppy", "nid", "moxi", "dom", "huberte",
             "smol heredit", "yami", "bran",
             // Skilling Pets
             "abyssal protector", "baby chinchompa", "beaver", "bloodhound", "giant squirrel",
             "heron", "phoenix", "rift guardian", "rock golem", "rocky", "tangleroot", "quetzin",
-            // Other / House Pets
-            "broav", "clockwork cat", "pet cat", "pet dog", "pet fish", "pet rock", "toy cat",
-            "chameleon", "gecko", "iguana", "platypus", "raccoon", "vulture",
-            "cat", "kitten", "hellcat", "overgrown cat", "lazy cat", "wily cat");
+            // Other / Quest / Follower Pets
+            "cat", "kitten", "hellcat", "overgrown cat", "lazy cat", "wily cat",
+            "clockwork cat", "toy cat", "dog",
+            "mr mcgroot", "humphrey dumphrey", "spooky chair", "mayor of catherby", "archibald");
 
     // Inherently passive farm/domestic animals that never attack players, even if a
     // level 3 player is nearby.
