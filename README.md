@@ -98,4 +98,4 @@ Every category has its own independently configurable:
 
 ---
 
-<sub>Current version: 2.1.1</sub>
+<sub>Current version: 2.1.2</sub>

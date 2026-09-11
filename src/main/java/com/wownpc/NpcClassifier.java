@@ -211,11 +211,88 @@ public class NpcClassifier {
             "clockwork cat", "toy cat", "dog",
             "mr mcgroot", "humphrey dumphrey", "spooky chair", "mayor of catherby", "archibald");
 
-    // Inherently passive farm/domestic animals that never attack players, even if a
-    // level 3 player is nearby.
-    private static final Set<String> INHERENTLY_PASSIVE_NPC_NAMES = ImmutableSet.of(
-            "cow", "cow calf", "dairy cow", "chicken", "rooster", "duck", "ducklings",
-            "sheep", "lamb", "ram", "goat", "rabbit");
+    // Inherently passive NPCs (farm/domestic animals, high-level non-aggressive
+    // monsters like Evil Chicken,
+    // town guards, humanoids, and non-hostile slayer creatures) that never attack
+    // players unprovoked.
+    private static final Set<String> INHERENTLY_PASSIVE_NPC_NAMES = ImmutableSet.<String>builder()
+            .add("abhorrent spectre", "abyssal antibody", "abyssal demon", "air elemental", "air wizard",
+                    "akkha's shadow")
+            .add("al kharid warrior", "albatross", "alexis", "alomone", "alrik", "ancient zygomite")
+            .add("animated spade", "anja", "aquanite", "baby roc", "baby sea kraken", "baby tanglefoot")
+            .add("barbarian", "basilisk", "bat", "bear cub", "bedabin nomad fighter", "big frog")
+            .add("billy goat", "bird", "black bear", "black guard", "black guard berserker", "black heather")
+            .add("black unicorn foal", "blessed giant rat", "blood-starved venator", "bloodthirsty abomination",
+                    "bloodthirsty abyssal demon", "bloodthirsty banshee")
+            .add("bloodthirsty basilisk", "bloodthirsty basilisk sentinel", "bloodthirsty bloodveld",
+                    "bloodthirsty choke devil", "bloodthirsty cockathrice", "bloodthirsty crawler")
+            .add("bloodthirsty drake", "bloodthirsty gargoyle", "bloodthirsty hand", "bloodthirsty hydra",
+                    "bloodthirsty infernal pyrelord", "bloodthirsty jelly")
+            .add("bloodthirsty mage", "bloodthirsty mutated bloodveld", "bloodthirsty nechryarch",
+                    "bloodthirsty night beast", "bloodthirsty pyrelord", "bloodthirsty repugnant spectre")
+            .add("bloodthirsty shadow wyrm", "bloodthirsty smoke devil", "bloodthirsty spectre", "bloodthirsty turoth",
+                    "bloodthirsty twisted banshee", "bloodthirsty warped jelly")
+            .add("bloodveld", "bloody jack", "boar", "body golem", "borrokar", "breoca")
+            .add("brine rat", "broddi", "buffalo", "bull shark", "bunny", "butterfly ray")
+            .add("camp dweller", "cave abomination", "cave goblin guard", "cave goblin miner", "cave slime", "ceolburg")
+            .add("chaos golem", "chaotic death spawn", "chasm crawler", "chicken", "chilled jelly", "choke devil")
+            .add("chompy bird", "city guard", "clivet", "cockathrice", "cockatrice", "colonel radick")
+            .add("colossal hydra", "confused barbarian", "cow", "cow calf", "crab", "crimson sanguisphera")
+            .add("crushing hand", "cuffs", "dad", "dagannoth fledgeling", "dairy cow", "deathly mage")
+            .add("deathly ranger", "demon of balance", "demon of darkness", "demon of light", "dire gryphon",
+                    "disciple of iban")
+            .add("dolphin", "donny the lad", "druid", "drunken man", "duck", "ducklings")
+            .add("dungeon rat", "dust devil", "dwarf", "dwarf gang member", "eadburg", "eagle ray")
+            .add("earth elemental", "earth wizard", "eduard", "einar", "elder aquanite", "elf archer")
+            .add("elf warrior", "enclave guard", "energy sprite", "entrana firebird", "evil chicken", "evil creature")
+            .add("experiment", "experiment no.2", "famished shark", "farmer", "fever spider", "fire wizard")
+            .add("flaming pyrelord", "flawed golem", "foreman", "forgotten soul", "fortress guard", "fox")
+            .add("freidir", "frigatebird", "frog", "gadderanks", "galina", "gang boss")
+            .add("gangster", "gardener", "georgy", "giant ant", "giant frog", "giant mosquito")
+            .add("giant rockslug", "giant wasp", "gnome", "gnome child", "gnome guard", "gnome troop")
+            .add("gnome woman", "goat", "goblin champion", "goblin guard", "gorad")
+            .add("greater abyssal demon", "greater nechryael", "green guard", "grip", "grizzly bear cub", "gryphon")
+            .add("guardian drake", "guardian of armadyl", "h.a.m. guard", "head guard", "head thief")
+            .add("hengel", "hermit crab", "hero", "hoop snake", "hygd", "imp")
+            .add("imre", "infernal mage", "infernal pyrelord", "insatiable bloodveld", "insatiable mutated bloodveld",
+                    "iorwerth warrior")
+            .add("irina", "irvig senay", "jailer", "jake", "jal-mejjak", "jeff")
+            .add("jelly", "jennella", "jonny the beard", "joseph", "jubbly bird", "justiciar zachariah")
+            .add("khazard commander", "khazard guard", "khazard trooper", "killerwatt", "knight of ardougne",
+                    "knight of varlamore")
+            .add("kob", "ksenia", "lamb", "lanzig", "lensa", "lev")
+            .add("liliya", "lost barbarian", "lucien", "lynx", "lynx tamer", "mad angel")
+            .add("magma strykewyrm", "malevolent mage", "man", "marble gargoyle", "market guard", "menaphite thug")
+            .add("mercenary captain", "mercenary mage", "milla", "mind golem", "minotaur", "mister u.")
+            .add("monk", "monk of zamorak", "monstrous basilisk", "moonlight cockatrice", "mounted terrorbird gnome",
+                    "mudskipper")
+            .add("mutated bloodveld", "mutated terrorbird", "mutated tortoise", "narf", "narwhal", "nechryael")
+            .add("nechryarch", "night beast", "nikita", "nikolai", "nuclear smoke devil", "ocga")
+            .add("ogre chieftain", "ogre shaman", "oomlie bird", "orca", "oryx", "osprey")
+            .add("otherworldly being", "outlaw", "paladin", "palmer", "passionate supporter", "penance runner")
+            .add("penda", "pheasant", "pirate guard", "poltenip", "porazdir", "porcupine")
+            .add("praying mantis", "pyrelord", "rabbit", "radat", "radiant sanguisphera", "ragnvald")
+            .add("ram", "rannveig", "rat", "repugnant spectre", "rockslug", "rooster")
+            .add("runite golem", "rusty", "san tojalon", "scarred imp", "screaming banshee",
+                    "screaming twisted banshee")
+            .add("sea hawk", "sea snake hatchling", "sea snake young", "seagull", "shade", "shadow wyrm")
+            .add("sheep", "shipyard worker", "sir carl", "sir harry", "sir jerro", "sir mordred")
+            .add("skeleton fremennik", "small lizard", "smoke devil", "sofiya", "soldier (tier 1)", "soldier (tier 2)")
+            .add("soldier (tier 3)", "soldier (tier 4)", "soldier (tier 5)", "sorebones", "speedy keith",
+                    "spiked turoth")
+            .add("spinner", "stag", "stingray", "svetlana", "swamp frog", "tanglefoot")
+            .add("target", "temple guardian", "tern", "terrorbird", "thief", "thorhild")
+            .add("thrantax the mighty", "tormented warrior", "tortured soul", "tower guard", "troll spectator",
+                    "turoth")
+            .add("twig", "tyras guard", "tzhaar-hur", "tzhaar-ket", "tzhaar-mej", "tzhaar-xil")
+            .add("undead chicken", "undead cow", "ungadulu", "unicorn", "unicorn foal", "unusual chicken")
+            .add("valgerd", "vampyre juvenile", "venator", "vera", "vitreous chilled jelly", "vitreous warped jelly")
+            .add("viyeldi", "vulture", "warped jelly", "warped tortoise", "watchman", "water elemental")
+            .add("water wizard", "weaponsmaster", "white knight", "wilson", "wizard", "woman")
+            .add("wormbrain", "wyrm", "wyrmling", "yadviga", "yak", "yuri")
+            .add("zoja", "zombie rat", "zombie swab", "zygomite")
+
+            .build();
 
     // Strictly universally always-aggressive NPCs that attack ANY player regardless
     // of combat level (including level 126).
@@ -361,6 +438,11 @@ public class NpcClassifier {
     public boolean isInherentlyPassive(NPC npc) {
         if (npc == null) {
             return false;
+        }
+        int id = npc.getId();
+        if (id == 516 || id == 11952) {
+            // Passive Black Knight variants (Draynor Village & Varrock)
+            return true;
         }
         String name = getNpcDisplayName(npc);
         return isInherentlyPassiveName(name);

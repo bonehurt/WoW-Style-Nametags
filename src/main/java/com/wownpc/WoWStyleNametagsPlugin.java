@@ -44,7 +44,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 @PluginDescriptor(name = "WoW-Style Nametags", description = "Overlays NPC/Player names above their heads, with optional color-coding and outlines & other options similar to World of Warcraft.", tags = {
         "NPC", "names", "overlay", "WoW", "nametags", "nametag", "max hit", "level" })
 public class WoWStyleNametagsPlugin extends Plugin {
-    private static final String CURRENT_VERSION = "2.1.1";
+    private static final String CURRENT_VERSION = "2.1.2";
     private static final String UPDATE_NOTICE_VERSION_KEY = "updateNoticeVersion";
     private static final String UPDATE_NOTICE_TEXT = "Added 'Max nametags per tile', 'Combat level', 'Max hit' & 'Hide boss nametags' settings + Aggro tweaks + some bugfixes!";
     private boolean updateNoticePending = false;

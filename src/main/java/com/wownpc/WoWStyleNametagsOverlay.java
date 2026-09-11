@@ -207,17 +207,17 @@ public class WoWStyleNametagsOverlay extends Overlay {
         int outlineThickness = 2;
         int fontSize = 16;
 
-        // Follower pet check (active follower or another player's follower)
-        Actor owner = npc.getInteracting();
-        boolean myFollower = (client != null && npc.equals(client.getFollower()))
-                || (owner != null && owner.equals(localPlayer));
+        // Follower pet check (active follower or recognized pet like in POH Menagerie)
+        boolean isMyActiveFollower = client != null && npc.equals(client.getFollower());
+        boolean isKnownFollower = (npc.getComposition() != null && npc.getComposition().isFollower())
+                || (classifier != null && classifier.isPet(npc));
 
-        boolean otherFollower = !myFollower && ((owner instanceof Player)
-                || (npc.getComposition() != null && npc.getComposition().isFollower()));
-
-        boolean follower = myFollower || otherFollower;
+        boolean follower = isMyActiveFollower || isKnownFollower;
 
         if (follower) {
+            Actor owner = npc.getInteracting();
+            boolean myFollower = isMyActiveFollower || (owner != null && owner.equals(localPlayer));
+
             if (myFollower) {
                 if (!plugin.enableMyFollowers)
                     return null;
